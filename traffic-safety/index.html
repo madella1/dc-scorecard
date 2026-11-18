@@ -1,0 +1,1148 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Traffic safety scorecard | DC Scorecard</title>
+<meta name="description" content="Safety grades for every DC ward, ANC and single-member district, built from police crash reports and DDOT traffic counts.">
+<meta property="og:title" content="Traffic safety scorecard | DC Scorecard">
+<meta property="og:description" content="Safety grades for every DC ward, ANC and single-member district, built from police crash reports and DDOT traffic counts.">
+<meta name="theme-color" content="#c8102e">
+<link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+
+<link rel="stylesheet" href="../assets/site.css">
+<script src="../assets/d3-7.8.5.min.js"></script>
+<script src="../data/traffic-safety/data.js"></script>
+<script src="../assets/data-loader.js" data-base="../data/traffic-safety/" data-files='{"anc": "dc-crashes-by-anc.csv", "smd": "dc-crashes-by-smd.csv", "ward": "dc-crashes-by-ward.csv", "city": "dc-crashes-city.csv", "citywide": "dc-crashes-citywide.csv", "peers": "dc-peer-cities.csv", "outlines": "dc-district-outlines.json", "roads": "dc-major-roads.json"}'></script>
+</head>
+<body>
+<header class="site-head"><div class="wrap">
+  <a class="brand" href="../"><svg class="flag" viewBox="0 0 40 26" aria-hidden="true" focusable="false"><path fill="currentColor" d="M9.00,0.60L10.03,3.78L13.37,3.78L10.67,5.74L11.70,8.92L9.00,6.96L6.30,8.92L7.33,5.74L4.63,3.78L7.97,3.78ZM20.00,0.60L21.03,3.78L24.37,3.78L21.67,5.74L22.70,8.92L20.00,6.96L17.30,8.92L18.33,5.74L15.63,3.78L18.97,3.78ZM31.00,0.60L32.03,3.78L35.37,3.78L32.67,5.74L33.70,8.92L31.00,6.96L28.30,8.92L29.33,5.74L26.63,3.78L29.97,3.78ZM0 11.5H40V16.5H0ZM0 20H40V25H0Z"/></svg><span>DC Scorecard</span></a>
+  <nav class="site-nav" aria-label="Main"><a href="../">Home</a><a href="../traffic-safety/" aria-current="page">Traffic safety</a><a href="../about/">About</a></nav>
+</div></header>
+<div class="bars" aria-hidden="true"></div>
+<main class="wrap">
+<p class="page-note">Crash data through 2026-10-19. Updated October 24, 2026.</p>
+<style>
+/* Layout: header + controls, then map card beside the scorecard panel (stacks when narrow), then a full-width ranking table and method notes. */
+.cs { font-family: var(--font-anthropic-sans); display: grid; gap: var(--cds-gap-lg); color: var(--color-fg); }
+.cs [hidden] { display: none !important; }
+.cs-head { display: grid; gap: var(--cds-gap-xs); }
+.cs-title { font-family: var(--font-anthropic-serif); font-weight: 400; font-size: var(--cds-font-size-title); margin: 0; text-wrap: balance; }
+.cs-takeaway { margin: 0; max-width: 70ch; color: var(--color-fg-muted); line-height: 1.5; }
+.cs .cs-takeaway b { color: var(--color-fg); font-weight: 600; font-variant-numeric: tabular-nums; }
+
+.cs-controls { display: flex; flex-wrap: wrap; gap: var(--cds-gap-sm) var(--cds-gap-md); align-items: end; }
+.cs-ctl { display: grid; gap: var(--cds-gap-xs); min-width: 0; }
+.cs-ctl-label { font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); }
+.cs-seg { display: inline-flex; border: 1px solid var(--color-border-line); border-radius: var(--cds-radius); overflow: hidden; background: var(--color-panel); }
+.cs-seg button { font: inherit; font-size: var(--cds-font-size-caption); border: 0; background: transparent; color: var(--color-fg-muted); padding: var(--cds-pad-xs) var(--cds-pad-sm); cursor: pointer; white-space: nowrap; }
+.cs-seg button + button { border-left: 1px solid var(--color-border-line); }
+.cs-seg button[aria-pressed="true"] { color: var(--color-fg); background: var(--color-bg); font-weight: var(--cds-font-weight-medium); }
+.cs-select, .cs-input { font: inherit; font-size: var(--cds-font-size-caption); color: var(--color-fg); background: var(--color-panel); border: 1px solid var(--color-border-line); border-radius: var(--cds-radius); padding: var(--cds-pad-xs) var(--cds-pad-sm); min-width: 0; }
+.cs-input { width: 15rem; max-width: 100%; }
+.cs-measure-note { margin-top: calc(-1 * var(--cds-gap-sm)); max-width: 80ch; }
+.cs-find-msg { font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); min-height: 1.2em; }
+.cs button:focus-visible, .cs-select:focus-visible, .cs-input:focus-visible { outline: 2px solid var(--color-fg); outline-offset: 2px; }
+
+.cs-grid { display: grid; gap: var(--cds-gap-md); grid-template-columns: repeat(auto-fit, minmax(min(100%, 22rem), 1fr)); align-items: start; }
+.cs-card { background: var(--color-panel); border: 1px solid var(--color-border-line); border-radius: var(--cds-radius); padding: var(--cds-pad-lg); display: grid; gap: var(--cds-gap-sm); min-width: 0; }
+.cs-card h2 { font-size: var(--cds-font-size-heading); font-weight: var(--cds-font-weight-medium); margin: 0; }
+.cs-note { margin: 0; font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); line-height: 1.45; }
+
+.cs-mapbox { position: relative; min-height: 18rem; }
+.cs-mapbox svg { display: block; width: 100%; height: auto; max-height: 44rem; touch-action: none; cursor: grab; }
+.cs-mapbox svg:active { cursor: grabbing; }
+.cs-area { stroke: var(--color-panel); stroke-width: 0.6; vector-effect: non-scaling-stroke; cursor: pointer; }
+.cs-area:hover { stroke: var(--color-fg); stroke-width: 1.2; }
+.cs-ancline { fill: none; stroke: var(--color-fg); stroke-opacity: .55; stroke-width: 1; vector-effect: non-scaling-stroke; pointer-events: none; }
+.cs-selline { fill: none; stroke: var(--color-fg); stroke-width: 2.5; vector-effect: non-scaling-stroke; pointer-events: none; }
+.cs-label { fill: var(--color-fg); stroke: var(--color-panel); stroke-width: 3; paint-order: stroke; vector-effect: non-scaling-stroke; font-family: var(--font-anthropic-sans); font-weight: 600; text-anchor: middle; dominant-baseline: central; pointer-events: none; }
+.cs-zoom { position: absolute; top: var(--cds-pad-xs); right: var(--cds-pad-xs); display: grid; gap: 2px; }
+.cs-zoom button { font: inherit; width: 2rem; height: 2rem; border: 1px solid var(--color-border-line); border-radius: var(--cds-radius); background: var(--color-bg); color: var(--color-fg); cursor: pointer; }
+.cs-zoom button.cs-reset { width: auto; height: auto; font-size: var(--cds-font-size-caption); padding: 2px var(--cds-pad-xs); }
+.cs-tip { position: absolute; pointer-events: none; background: var(--cds-surface-popover); border: 1px solid var(--cds-border); border-radius: var(--cds-radius); box-shadow: var(--cds-shadow-popover); padding: var(--cds-pad-xs) var(--cds-pad-sm); font-size: var(--cds-font-size-caption); white-space: nowrap; z-index: 2; }
+.cs-tip .cs-tip-head { color: var(--cds-text-secondary); }
+.cs-tip .cs-tip-val { font-variant-numeric: tabular-nums; }
+.cs-legend { display: flex; flex-wrap: wrap; gap: var(--cds-gap-xs) var(--cds-gap-sm); font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); font-variant-numeric: tabular-nums; }
+.cs-legend span { display: inline-flex; align-items: center; gap: 6px; }
+.cs-legend i { width: 14px; height: 14px; border-radius: 3px; display: inline-block; border: 1px solid var(--color-border-line); }
+
+.cs-panel-head { display: grid; gap: 2px; }
+.cs-panel-name { font-family: var(--font-anthropic-serif); font-weight: 400; font-size: var(--cds-font-size-title); margin: 0; }
+.cs-panel-sub { font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); display: flex; flex-wrap: wrap; gap: 4px var(--cds-gap-sm); font-variant-numeric: tabular-nums; }
+.cs-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.cs-chip, .cs-uplink { font: inherit; font-size: var(--cds-font-size-caption); border: 1px solid var(--color-border-line); background: var(--color-bg); color: var(--color-fg); border-radius: 999px; padding: 2px 10px; cursor: pointer; }
+.cs-uplink { justify-self: start; }
+.cs-tiles { display: grid; gap: var(--cds-gap-sm); grid-template-columns: repeat(auto-fit, minmax(min(100%, 11rem), 1fr)); }
+.cs-tile { font: inherit; text-align: left; color: inherit; background: var(--color-bg); border: 1px solid var(--color-border-line); border-radius: var(--cds-radius); padding: var(--cds-pad-sm) var(--cds-pad-md); display: grid; gap: 4px; align-content: start; cursor: pointer; min-width: 0; }
+.cs-tile-static { cursor: default; }
+.cs-tile[aria-pressed="true"] { border-color: var(--color-fg); box-shadow: inset 0 0 0 1px var(--color-fg); }
+.cs-tile-label { font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); }
+.cs-tile-big { font-family: var(--font-anthropic-serif); font-weight: 400; font-size: var(--cds-font-size-title); line-height: 1.1; font-variant-numeric: tabular-nums; }
+.cs-tile-unit { font-family: var(--font-anthropic-sans); font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); }
+.cs-tile-line { font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); font-variant-numeric: tabular-nums; }
+.cs-pill { justify-self: start; font-size: var(--cds-font-size-caption); color: var(--color-bad); border: 1px solid currentColor; border-radius: 999px; padding: 0 8px; }
+.cs-ytd { margin: 0; font-size: var(--cds-font-size-caption); line-height: 1.5; color: var(--color-fg-muted); font-variant-numeric: tabular-nums; }
+.cs-ytd b { color: var(--color-fg); font-weight: 600; }
+.cs-up { color: var(--color-bad); }
+.cs-down { color: var(--color-ok); }
+.cs-trend { position: relative; min-height: 190px; }
+.cs-trend svg { display: block; }
+.cs-trend .tick text { fill: var(--color-fg-muted); font-size: var(--cds-font-size-caption); }
+
+.cs-tablebar { display: flex; flex-wrap: wrap; gap: var(--cds-gap-sm); align-items: center; justify-content: space-between; }
+.cs-tablewrap { max-height: 28rem; overflow: auto; border-top: 1px solid var(--color-border-line); }
+.cs-table { width: 100%; border-collapse: collapse; font-size: var(--cds-font-size-caption); font-variant-numeric: tabular-nums; }
+.cs-table th { position: sticky; top: 0; background: var(--color-panel); text-align: right; font-weight: var(--cds-font-weight-medium); padding: 0; border-bottom: 1px solid var(--color-border-line); z-index: 1; }
+.cs-table th:first-child, .cs-table th.cs-txt { text-align: left; }
+.cs-table th button { font: inherit; color: var(--color-fg-muted); background: none; border: 0; padding: var(--cds-pad-xs) var(--cds-pad-sm); cursor: pointer; width: 100%; text-align: inherit; white-space: nowrap; }
+.cs-table th[aria-sort] button { color: var(--color-fg); }
+.cs-table td { padding: var(--cds-pad-xs) var(--cds-pad-sm); text-align: right; border-bottom: 1px solid var(--color-border-line); white-space: nowrap; }
+.cs-table td:first-child, .cs-table td.cs-txt { text-align: left; }
+.cs-table tbody tr { cursor: pointer; }
+.cs-table tbody tr:hover td { background: var(--color-bg); }
+.cs-table tbody tr.cs-on td { background: var(--color-bg); font-weight: 600; }
+.cs-bar { display: inline-block; height: 6px; border-radius: 3px; vertical-align: middle; margin-right: 6px; background: var(--cds-chart-muted); }
+
+.cs-tabs { display: flex; gap: var(--cds-gap-xs); border-bottom: 1px solid var(--color-border-line); }
+.cs-tabs button { font: inherit; background: none; border: 0; border-bottom: 2px solid transparent; color: var(--color-fg-muted); padding: var(--cds-pad-xs) var(--cds-pad-sm); cursor: pointer; margin-bottom: -1px; }
+.cs-tabs button[aria-selected="true"] { color: var(--color-fg); border-bottom-color: var(--color-fg); font-weight: var(--cds-font-weight-medium); }
+.cs-view { display: grid; gap: var(--cds-gap-lg); }
+.cs-linkbtn { font: inherit; background: none; border: 0; padding: 0; color: var(--color-fg); text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
+.cs-about p { margin: 0; line-height: 1.55; max-width: 75ch; }
+.ab-layout { display: grid; grid-template-columns: 210px minmax(0, 1fr); gap: 48px; padding-block: var(--cds-gap-lg) 0; }
+.ab-layout > * { min-width: 0; }
+.ab-toc { position: sticky; top: 16px; align-self: start; }
+.ab-toc p { margin: 0 0 10px; font-size: var(--cds-font-size-caption); font-weight: 600; color: var(--color-fg-muted); }
+.ab-toc ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; border-left: 2px solid var(--color-border-line); }
+.ab-toc a { display: block; padding-left: 14px; margin-left: -2px; border-left: 2px solid transparent; color: var(--color-fg-muted); text-decoration: none; font-size: .9rem; }
+.ab-toc a:hover, .ab-toc a[aria-current="true"] { color: var(--color-fg); border-left-color: var(--color-fg); }
+.ab-section { padding-bottom: 40px; max-width: 46em; scroll-margin-top: 16px; }
+.ab-section h2 { font-size: 1.25rem; font-weight: 700; letter-spacing: -0.01em; margin: 0 0 12px; }
+.ab-section h3 { font-size: 1rem; font-weight: 700; margin: 24px 0 8px; }
+.ab-section p { margin: 0 0 14px; color: var(--color-fg-muted); line-height: 1.6; max-width: none; }
+.ab-section ul { margin: 0 0 14px; padding-left: 1.2em; display: grid; gap: 8px; color: var(--color-fg-muted); line-height: 1.6; }
+.ab-section b { color: var(--color-fg); font-weight: 600; font-variant-numeric: tabular-nums; }
+.ab-section .ab-intro { margin-bottom: 16px; }
+.ab-table { overflow-x: auto; border: 1px solid var(--color-border-line); border-radius: var(--cds-radius); background: var(--color-panel); margin: 0 0 16px; }
+.ab-table table { width: 100%; border-collapse: collapse; font-size: .9rem; min-width: 520px; }
+.ab-table th, .ab-table td { text-align: left; padding: 12px 16px; border-top: 1px solid var(--color-border-line); vertical-align: top; line-height: 1.5; }
+.ab-table thead th { border-top: none; font-size: var(--cds-font-size-caption); font-weight: 600; color: var(--color-fg-muted); }
+.ab-table td { color: var(--color-fg-muted); }
+.ab-table td:first-child { font-weight: 600; color: var(--color-fg); white-space: nowrap; }
+.ab-table td.ab-unit { font-size: var(--cds-font-size-caption); }
+.ab-table td.ab-nowrap, .ab-table th:last-child:nth-child(3) { white-space: nowrap; }
+@media (max-width: 860px) { .ab-layout { grid-template-columns: minmax(0, 1fr); gap: 20px; } .ab-toc { position: static; } }
+
+.cs-about-grid { display: grid; gap: var(--cds-gap-md); grid-template-columns: repeat(auto-fit, minmax(min(100%, 22rem), 1fr)); align-items: start; }
+.cs-dl { margin: 0; display: grid; gap: var(--cds-gap-xs); }
+.cs-dl dt { font-weight: var(--cds-font-weight-medium); }
+.cs-dl dd { margin: 0 0 var(--cds-gap-xs); color: var(--color-fg-muted); line-height: 1.5; }
+.cs-list { margin: 0; padding-left: 1.1rem; display: grid; gap: 6px; color: var(--color-fg-muted); line-height: 1.5; }
+.cs-about .cs-list b, .cs-about p b { color: var(--color-fg); font-variant-numeric: tabular-nums; }
+.cs-context { display: grid; gap: 6px; padding: var(--cds-pad-sm) var(--cds-pad-md); border: 1px solid var(--color-border-line); border-radius: var(--cds-radius); background: var(--color-bg); }
+.cs-context.cs-active { border-color: var(--color-fg); }
+.cs-context-text { display: grid; gap: 2px; font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); line-height: 1.5; }
+.cs-context-title { color: var(--color-fg); font-weight: var(--cds-font-weight-medium); }
+.cs .cs-context b { color: var(--color-fg); font-weight: 600; font-variant-numeric: tabular-nums; }
+.cs-split { height: 8px; border-radius: 4px; background: var(--cds-chart-muted); overflow: hidden; }
+.cs-split-on { display: block; height: 100%; width: 0; }
+.cs-split-key { display: flex; flex-wrap: wrap; gap: var(--cds-gap-sm); font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); }
+.cs-split-key span { display: inline-flex; align-items: center; gap: 6px; }
+.cs-split-key i { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
+.cs-k-off { background: var(--cds-chart-muted); }
+.cs-grade { display: grid; grid-template-columns: auto 1fr; gap: var(--cds-gap-md); align-items: start; padding: var(--cds-pad-sm) var(--cds-pad-md); border: 1px solid var(--color-border-line); border-radius: var(--cds-radius); background: var(--color-bg); }
+.cs-grade-letter { font-family: var(--font-anthropic-serif); font-size: 2.6rem; line-height: 1; min-width: 3.2rem; text-align: center; padding: 8px 6px; border-radius: var(--cds-radius); border: 1px solid var(--color-border-line); font-variant-numeric: tabular-nums; }
+.cs-grade-text { display: grid; gap: 4px; font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); line-height: 1.5; min-width: 0; }
+.cs .cs-grade-text b { color: var(--color-fg); font-weight: 600; font-variant-numeric: tabular-nums; }
+.cs-grade-parts { grid-column: 1 / -1; display: grid; gap: 2px; margin: 0; padding: 0; list-style: none; font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); font-variant-numeric: tabular-nums; }
+.cs-grade-parts li { display: flex; justify-content: space-between; gap: var(--cds-gap-sm); border-top: 1px solid var(--color-border-line); padding-top: 2px; }
+.cs-grade-parts li span:last-child { color: var(--color-fg); }
+.cs-peers { grid-column: 1 / -1; display: grid; gap: 4px; }
+.cs-peers svg { display: block; }
+.cs-peers text { font-size: 11px; fill: var(--color-fg-muted); }
+.cs-peers text.cs-dc { fill: var(--color-fg); font-weight: 600; }
+.cs-gradekey { display: grid; grid-template-columns: auto 1fr; gap: 4px var(--cds-gap-sm); margin: 0; font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); }
+.cs-gradekey dt { font-weight: 600; color: var(--color-fg); }
+.cs-gradekey dd { margin: 0; }
+.cs-roads { border: 0; margin: 0; padding: 0; min-width: 0; }
+.cs-checks { display: flex; flex-wrap: wrap; gap: 4px var(--cds-gap-md); font-size: var(--cds-font-size-caption); }
+.cs-checks label { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; white-space: nowrap; }
+.cs-checks input { margin: 0; accent-color: var(--color-fg); }
+.cs-roadkey { display: inline-block; width: 22px; border-radius: 2px; }
+.cs-road { fill: none; vector-effect: non-scaling-stroke; stroke-linecap: round; stroke-linejoin: round; cursor: default; }
+.cs-roadhalo { fill: none; vector-effect: non-scaling-stroke; stroke: var(--color-panel); stroke-linecap: round; stroke-linejoin: round; pointer-events: none; }
+#about-grades .cs-about-grid > div { display: grid; gap: var(--cds-gap-sm); align-content: start; }
+.cs-notes ul { margin: 0; padding-left: 1.1rem; display: grid; gap: 4px; font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); line-height: 1.5; max-width: 80ch; }
+[data-dash-source-state=empty] { color: transparent; }
+[data-dash-source-state=refreshing] { opacity: .5; transition: opacity var(--cds-dur-slow); }
+.cs-fail { display: flex; align-items: center; justify-content: center; gap: 6px; min-height: inherit; font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); }
+.cs-fail::before { content: ""; width: .375rem; height: .375rem; border-radius: 50%; background: var(--color-bad); }
+</style>
+
+<div class="cs" id="crash-scorecard">
+  <header class="cs-head" id="overview">
+    <h1 class="cs-title">DC crash scorecard</h1>
+    <p class="cs-takeaway" id="takeaway">DC averaged <b class="dash-skeleton" data-source="citywide" data-row="0" data-field="crashes">—</b> police-reported crashes a year in <b class="dash-skeleton" data-source="citywide" data-row="0" data-field="average_years">—</b>, with <b class="dash-skeleton" data-source="citywide" data-row="0" data-field="ksi">—</b> people seriously injured or killed each year. The highest rate of serious injuries and deaths per square mile is in ANC <b class="dash-skeleton" data-source="anc" data-field="anc" data-where="ksi_per_sqmi_rank=1">—</b>. On the streets DDOT counts traffic for (leaving out freeways), there are <b class="dash-skeleton" data-source="citywide" data-row="0" data-field="crashes_per_100m_vmt">—</b> crashes for every 100 million vehicle miles driven. Against 26 other US cities of similar size, DC earns a safety grade of <b class="dash-skeleton" data-source="city" data-row="0" data-field="grade">—</b> on traffic deaths. Click any area on the map, or pick one below, to see its scorecard.</p>
+  </header>
+
+  <div class="cs-tabs" role="tablist" aria-label="Views">
+    <button type="button" role="tab" id="tab-scorecard" data-tab="scorecard-view" aria-selected="true" aria-controls="scorecard-view">Scorecard</button>
+    <button type="button" role="tab" id="tab-about" data-tab="about" aria-selected="false" aria-controls="about">About this scorecard</button>
+  </div>
+
+  <div class="cs-view" id="scorecard-view" role="tabpanel" aria-labelledby="tab-scorecard">
+  <div class="cs-controls" id="controls">
+    <div class="cs-ctl">
+      <span class="cs-ctl-label" id="lvl-label">Show</span>
+      <div class="cs-seg" role="group" aria-labelledby="lvl-label">
+        <button type="button" id="lvl-city" data-level="city" aria-pressed="false">City</button>
+        <button type="button" id="lvl-ward" data-level="ward" aria-pressed="false">Wards</button>
+        <button type="button" id="lvl-anc" data-level="anc" aria-pressed="true">ANCs</button>
+        <button type="button" id="lvl-smd" data-level="smd" aria-pressed="false">Single-member districts</button>
+      </div>
+    </div>
+    <label class="cs-ctl" for="cs-metric">
+      <span class="cs-ctl-label">Color the map by</span>
+      <select class="cs-select" id="cs-metric">
+        <option value="grade" selected>Safety grade</option>
+        <option value="crashes">All crashes</option>
+        <option value="ksi">Serious injuries and deaths</option>
+        <option value="ped">Pedestrians injured or killed</option>
+        <option value="bike">Cyclists injured or killed</option>
+        <option value="deaths" id="opt-deaths">Traffic deaths (wards and city)</option>
+      </select>
+    </label>
+    <div class="cs-ctl">
+      <span class="cs-ctl-label" id="msr-label">Compare by</span>
+      <div class="cs-seg" role="group" aria-labelledby="msr-label">
+        <button type="button" id="msr-district" data-measure="district" aria-pressed="true">Per district</button>
+        <button type="button" id="msr-year" data-measure="year" aria-pressed="false">Total</button>
+        <button type="button" id="msr-sqmi" data-measure="sqmi" aria-pressed="false">Per sq mi</button>
+        <button type="button" id="msr-vmt" data-measure="vmt" aria-pressed="false">Per vehicle mile</button>
+      </div>
+    </div>
+    <fieldset class="cs-ctl cs-roads">
+      <legend class="cs-ctl-label">Show major roads</legend>
+      <div class="cs-checks" id="road-checks">
+        <label><input type="checkbox" data-road="1"><i class="cs-roadkey" data-key="1"></i>Interstate</label>
+        <label><input type="checkbox" data-road="2"><i class="cs-roadkey" data-key="2"></i>Other freeway and expressway</label>
+        <label><input type="checkbox" data-road="3"><i class="cs-roadkey" data-key="3"></i>Principal arterial</label>
+      </div>
+    </fieldset>
+    <div class="cs-ctl">
+      <label class="cs-ctl-label" for="cs-find">Go to a ward, ANC or district</label>
+      <input class="cs-input" id="cs-find" type="search" placeholder="e.g. Ward 4, 4D or 4D02" autocomplete="off">
+      <span class="cs-find-msg" id="cs-find-msg" aria-live="polite"></span>
+    </div>
+  </div>
+  <p class="cs-note cs-measure-note" id="measure-note"></p>
+
+  <div class="cs-grid">
+    <section class="cs-card" id="map">
+      <h2 id="map-title">All crashes per year, by ANC</h2>
+      <p class="cs-note" id="map-note">Darker areas rank higher. Drag to move, use the buttons or pinch to zoom.</p>
+      <div class="cs-mapbox" id="cs-mapbox" data-source="outlines anc">
+        <svg id="cs-map-svg" width="100%" role="img" aria-labelledby="map-title"></svg>
+        <div class="cs-zoom">
+          <button type="button" id="zoom-in" aria-label="Zoom in">+</button>
+          <button type="button" id="zoom-out" aria-label="Zoom out">−</button>
+          <button type="button" class="cs-reset" id="zoom-reset">Reset</button>
+        </div>
+        <div class="cs-tip" id="cs-tip" hidden></div>
+      </div>
+      <div class="cs-legend" id="cs-legend" data-source="anc"></div>
+    </section>
+
+    <section class="cs-card" id="scorecard" aria-live="polite">
+      <div class="cs-panel-head">
+        <h2 class="cs-panel-name"><span id="p-kind">ANC</span> <span class="dash-skeleton" data-cs-row data-field="anc" id="p-id">—</span></h2>
+        <div class="cs-panel-sub" id="p-sub-anc">
+          <span data-cs-show="anc">Ward <span data-cs-row data-cs-only="anc" data-field="ward">—</span></span>
+          <span data-cs-show="ward city"><span data-cs-row data-cs-only="ward city" data-field="anc_count">—</span> ANCs</span>
+          <span><span data-cs-row data-cs-only="anc ward city" data-field="smd_count">—</span> single-member districts</span>
+          <span><span data-cs-row data-cs-only="anc ward city" data-field="area_sqmi">—</span> sq mi</span>
+        </div>
+        <div class="cs-panel-sub" id="p-sub-smd" hidden>
+          <span>Ward <span data-cs-row data-cs-only="smd" data-field="ward">—</span></span>
+          <span>Commissioner: <span data-cs-row data-cs-only="smd" data-field="commissioner">—</span></span>
+          <span><span data-cs-row data-cs-only="smd" data-field="area_sqmi">—</span> sq mi</span>
+        </div>
+      </div>
+      <div class="cs-chips" id="p-chips" data-source="smd"></div>
+      <button type="button" class="cs-uplink" id="p-up" hidden>Show all of ANC <span data-cs-row data-cs-only="smd" data-field="anc">—</span></button>
+
+      <div class="cs-grade" id="grade-box" data-source="anc">
+        <div class="cs-grade-letter" id="g-letter" aria-label="Safety grade">—</div>
+        <div class="cs-grade-text">
+          <span class="cs-context-title" id="g-title">Safety grade</span>
+          <span id="g-desc"></span>
+          <span id="g-trend"></span>
+        </div>
+        <ul class="cs-grade-parts" id="g-parts"></ul>
+        <div class="cs-peers" id="g-peers" data-source="peers" hidden></div>
+      </div>
+
+      <p class="cs-note" id="p-tiles-note">Yearly averages, 2023 to 2025. Rank 1 means the most among <span id="p-peer">ANCs</span>.</p>
+      <div class="cs-tiles" id="tiles">
+        <button type="button" class="cs-tile" data-metric="crashes" aria-pressed="true">
+          <span class="cs-tile-label">Crashes</span>
+          <span class="cs-tile-big"><span data-cs-row data-cs-measure data-cs-metric="crashes" data-field="crashes">—</span><span class="cs-tile-unit"></span></span>
+          <span class="cs-tile-line cs-tile-rank">Rank <span data-cs-row data-cs-measure data-cs-metric="crashes" data-cs-rank data-cs-only="ward anc smd" data-field="crashes_rank">—</span> of <span data-cs-n>—</span></span>
+          <span class="cs-tile-line cs-tile-total"><span data-cs-row data-field="crashes">—</span> a year in total</span>
+          <span class="cs-tile-line cs-tile-none" hidden>Too little counted traffic for a rate</span>
+          <span class="cs-pill" hidden>Highest fifth</span>
+        </button>
+        <button type="button" class="cs-tile" data-metric="ksi" aria-pressed="false">
+          <span class="cs-tile-label">Serious injuries and deaths</span>
+          <span class="cs-tile-big"><span data-cs-row data-cs-measure data-cs-metric="ksi" data-field="ksi">—</span><span class="cs-tile-unit"></span></span>
+          <span class="cs-tile-line cs-tile-rank">Rank <span data-cs-row data-cs-measure data-cs-metric="ksi" data-cs-rank data-cs-only="ward anc smd" data-field="ksi_rank">—</span> of <span data-cs-n>—</span></span>
+          <span class="cs-tile-line cs-tile-total"><span data-cs-row data-field="ksi">—</span> a year in total</span>
+          <span class="cs-tile-line cs-tile-none" hidden>Too little counted traffic for a rate</span>
+          <span class="cs-pill" hidden>Highest fifth</span>
+        </button>
+        <button type="button" class="cs-tile" data-metric="ped" aria-pressed="false">
+          <span class="cs-tile-label">Pedestrians injured or killed</span>
+          <span class="cs-tile-big"><span data-cs-row data-cs-measure data-cs-metric="ped" data-field="ped">—</span><span class="cs-tile-unit"></span></span>
+          <span class="cs-tile-line cs-tile-rank">Rank <span data-cs-row data-cs-measure data-cs-metric="ped" data-cs-rank data-cs-only="ward anc smd" data-field="ped_rank">—</span> of <span data-cs-n>—</span></span>
+          <span class="cs-tile-line cs-tile-total"><span data-cs-row data-field="ped">—</span> a year in total</span>
+          <span class="cs-tile-line cs-tile-none" hidden>Too little counted traffic for a rate</span>
+          <span class="cs-pill" hidden>Highest fifth</span>
+        </button>
+        <button type="button" class="cs-tile" data-metric="bike" aria-pressed="false">
+          <span class="cs-tile-label">Cyclists injured or killed</span>
+          <span class="cs-tile-big"><span data-cs-row data-cs-measure data-cs-metric="bike" data-field="bike">—</span><span class="cs-tile-unit"></span></span>
+          <span class="cs-tile-line cs-tile-rank">Rank <span data-cs-row data-cs-measure data-cs-metric="bike" data-cs-rank data-cs-only="ward anc smd" data-field="bike_rank">—</span> of <span data-cs-n>—</span></span>
+          <span class="cs-tile-line cs-tile-total"><span data-cs-row data-field="bike">—</span> a year in total</span>
+          <span class="cs-tile-line cs-tile-none" hidden>Too little counted traffic for a rate</span>
+          <span class="cs-pill" hidden>Highest fifth</span>
+        </button>
+        <button type="button" class="cs-tile" id="tile-deaths" data-metric="deaths" aria-pressed="false" data-cs-show="ward city">
+          <span class="cs-tile-label">Traffic deaths</span>
+          <span class="cs-tile-big"><span data-cs-row data-cs-measure data-cs-metric="deaths" data-cs-only="ward city" data-field="deaths_avg_per_district">—</span><span class="cs-tile-unit"> people a year per district</span></span>
+          <span class="cs-tile-line" data-cs-show="ward">Rank <span data-cs-row data-cs-measure data-cs-metric="deaths" data-cs-rank data-cs-only="ward" data-field="deaths_avg_per_district_rank">—</span> of 8</span>
+          <span class="cs-tile-line">2019 to 2025 average</span>
+          <span class="cs-tile-line"><span data-cs-row data-cs-only="ward city" data-field="deaths_since_2019">—</span> people killed since 2019</span>
+        </button>
+      </div>
+
+      <div class="cs-context" id="traffic-context">
+        <div class="cs-context-text">
+          <span class="cs-context-title">Traffic context</span>
+          <span><b data-cs-row data-field="counted_road_share_pct">—</b>% of crashes here happen on non-freeway roads with DDOT traffic counts, which carry <b data-cs-row data-field="vehicle_miles_millions">—</b> million vehicle miles a year here. The rest are on freeways or on side streets without counts, so the per-vehicle-mile rate leaves them out.</span>
+        </div>
+        <div class="cs-split" aria-hidden="true"><span class="cs-split-on" id="split-on"></span></div>
+        <div class="cs-split-key" aria-hidden="true"><span><i class="cs-k-on"></i>On counted roads</span><span><i class="cs-k-off"></i>On freeways or side streets</span></div>
+      </div>
+
+      <p class="cs-ytd" id="ytd">So far in 2026 (through <b data-source="citywide" data-row="0" data-field="data_through">—</b>): <b data-cs-row data-field="crashes_2026_ytd">—</b> crashes, compared with <b data-cs-row data-field="crashes_2025_same_period">—</b> in the same months of 2025 <span id="ytd-chg">(<span data-cs-row data-field="crashes_ytd_change_pct">—</span>%)</span>. People seriously injured or killed: <b data-cs-row data-field="ksi_2026_ytd">—</b> this year, <b data-cs-row data-field="ksi_2025_same_period">—</b> in the same months of 2025.</p>
+
+      <h2 id="trend-title">Crashes by year</h2>
+      <div class="cs-trend" id="cs-trend" data-source="anc"></div>
+      <p class="cs-note">The lighter bar is 2026 so far. Hover a bar for its count.</p>
+    </section>
+  </div>
+
+  <section class="cs-card" id="rankings">
+    <div class="cs-tablebar">
+      <div>
+        <h2 id="table-title">All ANCs</h2>
+        <p class="cs-note" id="table-note">Per year, 2023 to 2025 average. Click a heading to sort, a row to open its scorecard.</p>
+      </div>
+      <input class="cs-input" id="cs-filter" type="search" placeholder="Filter rows" aria-label="Filter rows" autocomplete="off">
+    </div>
+    <div class="cs-tablewrap">
+      <table class="cs-table" id="cs-table" data-source="anc" data-row-key="anc">
+        <thead><tr id="cs-thead"></tr></thead>
+        <tbody id="cs-tbody"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <p class="cs-note">Want the definitions, sources and limits behind these numbers? <button type="button" class="cs-linkbtn" data-goto="about">Read about this scorecard</button></p>
+  </div>
+
+  <div class="cs-view cs-about" id="about" role="tabpanel" aria-labelledby="tab-about" hidden>
+    <div class="ab-layout">
+      <nav class="ab-toc" aria-label="On this tab">
+        <p>On this tab</p>
+        <ul>
+          <li><a href="#ab-what">What This Scorecard Shows</a></li>
+          <li><a href="#ab-use">How to Use It</a></li>
+          <li><a href="#ab-measures">The Measures</a></li>
+          <li><a href="#ab-compare">Ways to Compare</a></li>
+          <li><a href="#ab-grades">How the Grades Work</a></li>
+          <li><a href="#ab-city">The City Grade</a></li>
+          <li><a href="#ab-traffic">Traffic and Vehicle Miles</a></li>
+          <li><a href="#ab-placing">How Crashes Are Placed</a></li>
+          <li><a href="#ab-limits">Limits</a></li>
+          <li><a href="#ab-sources">Sources</a></li>
+        </ul>
+      </nav>
+      <div>
+        <section class="ab-section" id="ab-what">
+          <h2>What This Scorecard Shows</h2>
+          <p>Traffic crashes across DC as a whole and in each of its 8 wards, 46 Advisory Neighborhood Commissions (ANCs) and 345 single-member districts, built from DC's own open data. Each area gets a safety grade, four measures with a rank against its peers (wards against wards, and so on), a trend since 2019 and its 2026 record so far. Wards and the city also show traffic deaths.</p>
+          <p>Numbers are yearly averages for <b data-source="citywide" data-row="0" data-field="average_years">—</b>, the last three full years, so one unusual year counts less. Crash data runs through <b data-source="citywide" data-row="0" data-field="data_through">—</b>.</p>
+        </section>
+
+        <section class="ab-section" id="ab-use">
+          <h2>How to Use It</h2>
+          <ul>
+            <li><b>Show</b> picks the level: the whole city, wards, ANCs or single-member districts.</li>
+            <li><b>Color the map by</b> shades the map by safety grade or by one measure. Darker means worse.</li>
+            <li><b>Compare by</b> sets how areas are compared: per district, in total, per square mile or per vehicle mile. It changes the tiles, ranks and table. Grades always use their own fixed recipe.</li>
+            <li><b>Click an area</b> on the map, a row in the table, or type a name in <b>Go to</b> (Ward 4, 4D or 4D02) to open its scorecard. The buttons under the name step down a level, from a ward to its ANCs and from an ANC to its districts.</li>
+            <li><b>Click a tile</b> to color the map by that measure.</li>
+            <li><b>Show major roads</b> draws Interstates, other freeways and principal arterials on the map. Hover a road for its name.</li>
+          </ul>
+        </section>
+
+        <section class="ab-section" id="ab-measures">
+          <h2>The Measures</h2>
+          <p class="ab-intro">Every number comes from police crash reports.</p>
+          <div class="ab-table"><table>
+            <thead><tr><th>Measure</th><th>What it counts</th><th>Shown for</th></tr></thead>
+            <tbody>
+              <tr><td>Crashes</td><td>Every police-reported crash, whatever its severity.</td><td class="ab-unit ab-nowrap">All levels</td></tr>
+              <tr><td>Serious injuries and deaths</td><td>People with major injuries or who were killed: drivers, passengers, pedestrians and cyclists. The measure closest to DC's Vision Zero goal.</td><td class="ab-unit ab-nowrap">All levels</td></tr>
+              <tr><td>Pedestrians injured or killed</td><td>Pedestrians with any reported injury, plus pedestrian deaths.</td><td class="ab-unit ab-nowrap">All levels</td></tr>
+              <tr><td>Cyclists injured or killed</td><td>Cyclists with any reported injury, plus cyclist deaths.</td><td class="ab-unit ab-nowrap">All levels</td></tr>
+              <tr><td>Traffic deaths</td><td>Everyone killed in a crash, as the yearly average for 2019 to 2025 (seven full years, since three years has too few deaths to compare fairly), plus the total killed since 2019.</td><td class="ab-unit ab-nowrap">Wards and city</td></tr>
+            </tbody>
+          </table></div>
+          <p>Deaths are not shown for ANCs or districts because most have none in a given year, so their numbers would mostly reflect chance. Serious injuries and deaths is the better measure at those levels.</p>
+        </section>
+
+        <section class="ab-section" id="ab-compare">
+          <h2>Ways to Compare</h2>
+          <div class="ab-table"><table>
+            <thead><tr><th>Compare by</th><th>What it means</th><th>Best for</th></tr></thead>
+            <tbody>
+              <tr><td>Per district</td><td>The total divided by the number of single-member districts. Each district holds about 2,000 residents (2020 Census), so this is harm per resident. For a single district it equals the total.</td><td class="ab-unit">Fair comparisons between areas of different sizes</td></tr>
+              <tr><td>Total</td><td>The raw yearly count.</td><td class="ab-unit">Scale; larger areas rank higher just for having more people</td></tr>
+              <tr><td>Per square mile</td><td>The total divided by land area.</td><td class="ab-unit">Where streets and people are packed together</td></tr>
+              <tr><td>Per vehicle mile</td><td>Crashes on DDOT-counted streets per 100 million vehicle miles driven on them, leaving out freeways.</td><td class="ab-unit">How risky the streets are once traffic, including commuters, is accounted for</td></tr>
+            </tbody>
+          </table></div>
+        </section>
+
+        <section class="ab-section" id="ab-grades">
+          <h2>How the Grades Work</h2>
+          <p>Every ward, ANC and district gets a letter for how safe it is now, plus a sign for which way it is heading.</p>
+          <h3>The letter: where an area stands</h3>
+          <p>Three measures, each averaged over 2023 to 2025 and compared with DC as a whole, combine into one number for how much harm an area has compared with DC:</p>
+          <ul>
+            <li><b>Serious injuries and deaths</b> per district (40%)</li>
+            <li><b>Pedestrians and cyclists</b> injured or killed per district (40%)</li>
+            <li><b>Crashes per vehicle mile</b>, compared with the typical area at the same level (20%). Areas without enough counted traffic are graded on the other two.</li>
+          </ul>
+          <div class="ab-table"><table>
+            <thead><tr><th>Grade</th><th>Harm compared with DC</th></tr></thead>
+            <tbody>
+              <tr><td>A</td><td>Half the DC rate or less</td></tr>
+              <tr><td>B</td><td>50% to 80% of the DC rate</td></tr>
+              <tr><td>C</td><td>Within 25% of the DC average</td></tr>
+              <tr><td>D</td><td>1.25 to 2 times the DC rate</td></tr>
+              <tr><td>F</td><td>More than twice the DC rate</td></tr>
+            </tbody>
+          </table></div>
+          <p>Cutoffs are fixed rather than curved, so every area can earn an A as DC gets safer.</p>
+          <h3>The sign: which way it is heading</h3>
+          <p>Crashes and people hurt in the last two years (October 2024 to October 2026) are compared with the two years before. People hurt means everyone seriously injured or killed, plus pedestrians and cyclists with minor injuries.</p>
+          <div class="ab-table"><table>
+            <thead><tr><th>Sign</th><th>Meaning</th></tr></thead>
+            <tbody>
+              <tr><td>Plus</td><td>Improving at least 12% faster than DC as a whole</td></tr>
+              <tr><td>No sign</td><td>Changing about as fast as DC</td></tr>
+              <tr><td>Minus</td><td>Worsening at least 12% compared with DC</td></tr>
+            </tbody>
+          </table></div>
+          <p>Each area is compared with DC's own change because citywide shifts, like the pandemic or a change in police reporting, happen to every area at once. The city grade is what tracks those.</p>
+          <h3>Fair to small areas</h3>
+          <p>Districts with only a few cases are pulled partway toward the DC average, by about three cases' worth, so one bad crash cannot sink a grade. Wards and ANCs have enough cases that this barely matters.</p>
+        </section>
+
+        <section class="ab-section" id="ab-city">
+          <h2>The City Grade</h2>
+          <p>DC's own grade compares its traffic deaths per resident with the <b data-source="city" data-row="0" data-field="peer_count">—</b> US cities of 500,000 to 1 million people, using federal fatality data for 2018 to 2022 from a 2026 peer-reviewed study. Crash counts are not used because police departments report crashes differently, while deaths are recorded the same way everywhere.</p>
+          <p>The same letter cutoffs apply against the typical peer city. The sign compares DC's change since 2008 to 2012 with the typical peer's. The study ends in 2022 and DC's traffic deaths rose after that, so the city grade may be generous today.</p>
+        </section>
+
+        <section class="ab-section" id="ab-traffic">
+          <h2>Traffic and Vehicle Miles</h2>
+          <p>DDOT's 2025 traffic counts give average daily traffic for about <b data-source="citywide" data-row="0" data-field="traffic_road_miles">—</b> miles of DC's busier streets, adding up to <b data-source="citywide" data-row="0" data-field="vehicle_miles_billions">—</b> billion vehicle miles a year. Each road segment's traffic is multiplied by its length inside each district.</p>
+          <ul>
+            <li><b>Freeways are left out entirely.</b> Roads DDOT classifies as Interstate or Other Freeway and Expressway (I-295, I-395, the Whitehurst Freeway, the Suitland Parkway) carry <b data-source="citywide" data-row="0" data-field="freeway_vehicle_miles_billions">—</b> billion vehicle miles a year but have only about <b data-source="citywide" data-row="0" data-field="freeway_crashes">—</b> crashes a year. Leaving them in made any area with a freeway look far safer than its streets are. Freeway crashes still count in every other measure, because people get hurt there.</li>
+            <li><b>Which crashes count.</b> A crash counts as on a counted street if it is recorded on that route or lies within about 30 yards of it. Citywide, <b data-source="citywide" data-row="0" data-field="counted_road_share_pct">—</b>% of crashes happen on counted streets; each scorecard shows its own share under Traffic context.</li>
+            <li><b>Boundary roads.</b> Many district lines run down the middle of busy roads like Georgia Avenue. Crashes and traffic on a boundary road are split evenly between the districts on each side.</li>
+            <li><b>Minimum traffic.</b> Districts with under 2 million vehicle miles a year on counted streets get no rate, since a handful of crashes would swing it wildly. <b data-source="citywide" data-row="0" data-field="smd_with_traffic_rate">—</b> of <b data-source="citywide" data-row="0" data-field="smd_count">—</b> districts have a rate; every ward and ANC does.</li>
+            <li><b>One year of counts.</b> The 2025 counts are applied to 2023 to 2025 crashes, assuming traffic was broadly similar across those years.</li>
+          </ul>
+        </section>
+
+        <section class="ab-section" id="ab-placing">
+          <h2>How Crashes Are Placed</h2>
+          <ul>
+            <li><b>Boundaries.</b> Each crash is placed by its reported location inside the 2023 ANC and district boundaries, the ones used in this year's elections.</li>
+            <li><b>Wards</b> are built from their single-member districts using DC's 2022 ward boundaries. Every district sits at least 97% inside one ward. The ward labels in the crash records are inconsistent in places, so they are not used.</li>
+            <li><b>Edges.</b> Crashes recorded just outside any district, usually on a boundary street, go to the nearest district within about 65 yards. Only 3 crashes since 2019 fell outside DC entirely.</li>
+            <li><b>Bad records.</b> A few hundred records with impossible dates (such as 1825 or 1900) and about 1,400 with no date were left out. 15 road segments in DDOT's traffic file share one location near the Capitol, a mapping error, and were dropped (about 0.2% of traffic).</li>
+          </ul>
+        </section>
+
+        <section class="ab-section" id="ab-limits">
+          <h2>Limits to Keep in Mind</h2>
+          <ul>
+            <li><b>Police-reported crashes only.</b> Minor crashes are undercounted everywhere. Police records can also miss someone who dies days after a crash, so death counts may run a little below DC's official totals.</li>
+            <li><b>Commuter traffic.</b> Busy roads raise an area's crash counts no matter what residents do. The per vehicle mile view helps separate road risk from traffic volume.</li>
+            <li><b>Pedestrian and cyclist rates per vehicle mile</b> measure harm against car traffic, not against how many people walk or bike there.</li>
+            <li><b>Small numbers.</b> Small districts have few crashes, so one bad year can move their rank a lot. Check the trend chart before drawing conclusions.</li>
+            <li><b>Grades summarize; they do not explain.</b> A D can come from one dangerous corridor, and the tiles below each grade show which measure drives it.</li>
+            <li><b>Where, not why.</b> Crash counts show where harm happens. Road design, speeds, enforcement and land use all play a part.</li>
+          </ul>
+        </section>
+
+        <section class="ab-section" id="ab-sources">
+          <h2>Sources</h2>
+          <ul>
+            <li><b>Crashes in DC</b> (Metropolitan Police Department crash reports), DC Open Data, opendata.dc.gov.</li>
+            <li><b>Single Member District 2023</b> boundaries, DC Open Data.</li>
+            <li><b>Ward 2022</b> boundaries, DC Open Data.</li>
+            <li><b>Traffic Volume 2025</b> (average annual daily traffic), DDOT via DC Open Data.</li>
+            <li><b>Roadway Functional Classification</b> (FHWA road classes), DDOT via DC Open Data, last updated November 2022. Used to remove freeways from the vehicle-mile measure and for the major roads overlay.</li>
+            <li><b>Peer city death rates:</b> Schneider, Barbee, Nelson and Gu, "Examining a Lost Decade for Traffic Safety in Large US Cities," Findings (February 2026), Appendix Table A1, from NHTSA's Fatality Analysis Reporting System.</li>
+          </ul>
+          <p>The crash, district and traffic files were downloaded on October 21, 2026, the ward file on October 22 and the road classification file on October 24. Please cite DC Open Data and DDOT as the sources.</p>
+          <p class="cs-note"><button type="button" class="cs-linkbtn" data-goto="scorecard-view">Back to the scorecard</button></p>
+        </section>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  const root = document.getElementById('crash-scorecard');
+  const S = { level: 'anc', metric: 'grade', measure: 'district', sel: { city: 'DC', ward: '4', anc: '4D', smd: '4D02' }, sortKey: null, sortDir: -1, filter: '', roads: new Set() };
+  const LABEL = { deaths: 'Traffic deaths', grade: 'Safety grade', crashes: 'All crashes', ksi: 'Serious injuries and deaths', ped: 'Pedestrians injured or killed', bike: 'Cyclists injured or killed' };
+  const SHORT = { crashes: 'Crashes', ksi: 'Serious inj. and deaths', ped: 'Pedestrians', bike: 'Cyclists' };
+  const UNIT = { deaths: 'people killed', crashes: 'crashes', ksi: 'people', ped: 'pedestrians', bike: 'cyclists' };
+  const fInt = d3.format(','), f1 = d3.format(',.1f');
+  const LV = {
+    city: { kind: 'Washington,', plural: 'areas', by: 'for all of DC', tip: 'Washington, ', title: 'All of DC', line: 'ward' },
+    ward: { kind: 'Ward', plural: 'wards', by: 'by ward', tip: 'Ward ', title: 'All wards', line: null },
+    anc: { kind: 'ANC', plural: 'ANCs', by: 'by ANC', tip: 'ANC ', title: 'All ANCs', line: 'ward' },
+    smd: { kind: 'District', plural: 'districts', by: 'by single-member district', tip: 'District ', title: 'All single-member districts', line: 'anc' }
+  };
+  const only = (el) => !el.dataset.csOnly || el.dataset.csOnly.split(' ').includes(S.level);
+  const f2 = d3.format(',.2f');
+  const fmtFor = (field) => /^deaths_avg/.test(field) && !/_rank$/.test(field) ? f2 : (/_rank$|_count|_ytd|same_period|_\d{4}$|_pct$|^traffic_road_miles$|^smd_with_traffic_rate$|^freeway_crashes$|^deaths_since_2019$/.test(field) || (/^crashes/.test(field) && !/_per_district$/.test(field)) ? fInt : f1);
+  const num = (v) => (v === '' || v == null ? null : +v);
+  const enc = (v) => String(v).replace(/%/g, '%25').replace(/&/g, '%26').replace(/=/g, '%3D');
+  const rowsOf = (id) => { const d = dash.data(id); return d.status === 'ok' ? d.data : null; };
+  const SUF = { year: '', district: '_per_district', sqmi: '_per_sqmi', vmt: '_per_100m_vmt' };
+  const msr = () => (S.level === 'smd' && S.measure === 'district' ? 'year' : S.measure);
+  const fieldOf = (m) => (m === 'deaths' ? 'deaths_avg' : m) + SUF[msr()];
+  const DEATHS = () => S.metric === 'deaths';
+  const UNITTXT = { year: ' a year', district: ' a year per district', sqmi: ' a year per sq mi', vmt: ' per 100M vehicle miles' };
+  const MNAME = { year: 'total per year', district: 'per district (about 2,000 residents)', sqmi: 'per square mile', vmt: 'per 100 million vehicle miles' };
+  const MNOTE = {
+    district: 'Per district divides each area by its number of single-member districts, about 2,000 residents each, so large and small areas compare fairly. For a single district it equals the total.',
+    year: 'Totals favor small areas: ANCs range from 2 to 10 districts, and wards from 42 to 46.',
+    sqmi: 'Per square mile mostly shows where streets and people are packed together.',
+    vmt: 'Per vehicle mile shows how risky driving is on the streets DDOT counts, after accounting for how much traffic they carry. Freeways and side streets without counts are left out.'
+  };
+  const peerN = () => { const c = rowsOf('citywide'); if (!c) return null; return S.level === 'smd' && msr() === 'vmt' ? num(c[0].smd_with_traffic_rate) : num(c[0][S.level + '_count']); };
+  const nField = () => (S.level === 'smd' && msr() === 'vmt' ? 'smd_with_traffic_rate' : S.level + '_count');
+  const STEPS = [10, 28, 48, 70, 92];
+  const stepColor = (i) => `color-mix(in oklab, ${dash.colors[0]} ${STEPS[i]}%, var(--color-panel))`;
+  const ROAD = { 1: { name: 'Interstate', c: 1, w: 4 }, 2: { name: 'Other freeway and expressway', c: 3, w: 3 }, 3: { name: 'Principal arterial', c: 2, w: 2 } };
+  const roadColor = (k) => dash.colors[ROAD[k].c % dash.colors.length];
+  const GRADE = () => S.metric === 'grade';
+  const SER = () => (GRADE() ? 'crashes' : S.metric);
+  const LETTERS = ['A', 'B', 'C', 'D', 'F'];
+  const LETTER_TXT = { A: 'half the DC rate of harm or less', B: '50% to 80% of the DC rate of harm', C: 'within 25% of the DC average', D: '1.25 to 2 times the DC rate of harm', F: 'more than twice the DC rate of harm' };
+  const PEER_TXT = { A: 'under half the typical peer\u2019s death rate', B: '50% to 80% of the typical peer\u2019s death rate', C: 'within 25% of the typical peer', D: '1.25 to 2 times the typical peer\u2019s death rate', F: 'more than twice the typical peer\u2019s death rate' };
+  const vsTxt = (x, base) => { const v = num(x); if (v == null) return null; const p = Math.round((v - 1) * 100); return p === 0 ? 'same as ' + base : Math.abs(p) + '% ' + (p < 0 ? 'below ' : 'above ') + base; };
+  const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  /* ---------- map ---------- */
+  const svg = d3.select('#cs-map-svg');
+  const gZoom = svg.append('g');
+  const gFill = gZoom.append('g');
+  const gLines = gZoom.append('g');
+  const gRoads = gZoom.append('g');
+  const gSel = gZoom.append('g');
+  const gLabels = gZoom.append('g');
+  const mapbox = document.getElementById('cs-mapbox');
+  const tip = document.getElementById('cs-tip');
+  let W = 0, H = 0, drawnLevel = null, curK = 1, bboxCache = {};
+  const zoom = d3.zoom().scaleExtent([1, 14])
+    .filter((e) => (e.type === 'wheel' ? e.ctrlKey : !e.ctrlKey) && !e.button)
+    .on('zoom', (e) => { gZoom.attr('transform', e.transform); curK = e.transform.k; })
+    .on('end', () => placeLabels());
+  svg.call(zoom).on('dblclick.zoom', null);
+  const zoomBy = (f) => (reduce ? svg : svg.transition().duration(250)).call(zoom.scaleBy, f);
+  document.getElementById('zoom-in').addEventListener('click', () => zoomBy(1.6));
+  document.getElementById('zoom-out').addEventListener('click', () => zoomBy(1 / 1.6));
+  document.getElementById('zoom-reset').addEventListener('click', () => (reduce ? svg : svg.transition().duration(300)).call(zoom.transform, d3.zoomIdentity));
+
+  function zoomTo(id) {
+    const b = bboxCache[S.level + ':' + id];
+    if (!b || !W) return;
+    const k = Math.max(1, Math.min(8, 0.6 / Math.max(b.width / W, b.height / H)));
+    const t = d3.zoomIdentity.translate(W / 2, H / 2).scale(k).translate(-(b.x + b.width / 2), -(b.y + b.height / 2));
+    (reduce ? svg : svg.transition().duration(400)).call(zoom.transform, t);
+  }
+
+  function drawRoads() {
+    const d = rowsOf('roads');
+    const list = d ? d.filter((r) => S.roads.has(String(r.class_code))).sort((a, b) => b.class_code - a.class_code) : [];
+    gRoads.selectAll('path.cs-roadhalo').data(list, (r) => r.class_code + r.name).join('path').attr('class', 'cs-roadhalo').attr('d', (r) => r.path)
+      .attr('stroke-width', (r) => ROAD[r.class_code].w + 2);
+    gRoads.selectAll('path.cs-road').data(list, (r) => r.class_code + r.name).join('path').attr('class', 'cs-road').attr('d', (r) => r.path)
+      .attr('stroke', (r) => roadColor(r.class_code)).attr('stroke-width', (r) => ROAD[r.class_code].w)
+      .on('mousemove', (e, r) => {
+        tip.replaceChildren(Object.assign(document.createElement('div'), { className: 'cs-tip-head', textContent: ROAD[r.class_code].name }),
+          Object.assign(document.createElement('div'), { className: 'cs-tip-val', textContent: r.name }));
+        tip.hidden = false;
+        const [x, y] = d3.pointer(e, mapbox);
+        tip.style.left = Math.max(0, Math.min(mapbox.clientWidth - tip.offsetWidth, x + 12)) + 'px';
+        tip.style.top = Math.max(0, y - tip.offsetHeight - 10) + 'px';
+      })
+      .on('mouseleave', () => { tip.hidden = true; });
+    gRoads.selectAll('path.cs-roadhalo').lower();
+  }
+  function roadLegend(legend) {
+    [...S.roads].sort().forEach((k) => {
+      const sp = document.createElement('span'); const sw = document.createElement('i');
+      sw.className = 'cs-roadkey'; sw.style.cssText = `height:${ROAD[k].w}px;background:${roadColor(k)};border:0`;
+      sp.append(sw, document.createTextNode(ROAD[k].name)); legend.append(sp);
+    });
+  }
+  root.querySelectorAll('#road-checks input').forEach((cb) => {
+    cb.addEventListener('change', () => { if (cb.checked) S.roads.add(cb.dataset.road); else S.roads.delete(cb.dataset.road); render(); });
+  });
+
+  function drawOutlines(outlines) {
+    if (drawnLevel === S.level) return;
+    drawnLevel = S.level;
+    W = +outlines[0].map_w; H = +outlines[0].map_h;
+    svg.attr('viewBox', `0 0 ${W} ${H}`);
+    zoom.extent([[0, 0], [W, H]]).translateExtent([[0, 0], [W, H]]);
+    const items = outlines.filter((o) => o.level === S.level);
+    gFill.selectAll('path').data(items, (d) => d.id).join('path')
+      .attr('class', 'cs-area').attr('d', (d) => d.path).attr('data-id', (d) => d.id)
+      .on('click', (e, d) => select(d.id, false))
+      .on('mousemove', (e, d) => showTip(e, d.id))
+      .on('mouseleave', () => { tip.hidden = true; });
+    gLines.selectAll('path').data(LV[S.level].line ? outlines.filter((o) => o.level === LV[S.level].line) : [], (d) => d.id)
+      .join('path').attr('class', 'cs-ancline').attr('d', (d) => d.path);
+    gFill.selectAll('path').each(function (d) { bboxCache[S.level + ':' + d.id] = this.getBBox(); });
+  }
+
+  function placeLabels() {
+    gLabels.selectAll('*').remove();
+    const outl = rowsOf('outlines');
+    if (!outl || !W) return;
+    if ((S.level === 'smd' && curK < 3) || S.level === 'city') return;
+    const items = outl.filter((o) => o.level === S.level)
+      .map((o) => ({ o, b: bboxCache[S.level + ':' + o.id] }))
+      .filter((x) => x.b)
+      .sort((a, b) => b.b.width * b.b.height - a.b.width * a.b.height);
+    const fs = (S.level === 'ward' ? 28 : S.level === 'anc' ? 22 : 18) / curK;
+    const placed = [];
+    for (const { o } of items) {
+      const t = gLabels.append('text').attr('class', 'cs-label').attr('x', +o.lx).attr('y', +o.ly).attr('font-size', fs).text(S.level === 'ward' ? 'Ward ' + o.id : o.id);
+      const b = t.node().getBBox();
+      const pad = 2 / curK;
+      const hit = placed.some((p) => !(b.x + b.width + pad < p.x || p.x + p.width + pad < b.x || b.y + b.height + pad < p.y || p.y + p.height + pad < b.y));
+      if (hit) t.remove(); else placed.push(b);
+    }
+  }
+
+  function showTip(e, id) {
+    const rows = rowsOf(S.level);
+    const r = rows && rows.find((x) => x[S.level] === id);
+    if (!r) return;
+    const f = fieldOf(S.metric);
+    const n = rows.length;
+    tip.replaceChildren();
+    if (GRADE()) {
+      const h0 = document.createElement('div'); h0.className = 'cs-tip-head';
+      h0.textContent = LV[S.level].tip + id + (S.level === 'smd' && r.commissioner ? ' · ' + r.commissioner : '');
+      const v0 = document.createElement('div'); v0.className = 'cs-tip-val';
+      v0.textContent = 'Grade ' + r.grade + (S.level === 'city' ? '' : ' · harm ' + vsTxt(r.harm_vs_dc, 'DC'));
+      tip.append(h0, v0); tip.hidden = false;
+      const [x0, y0] = d3.pointer(e, mapbox);
+      tip.style.left = Math.max(0, Math.min(mapbox.clientWidth - tip.offsetWidth, x0 + 12)) + 'px';
+      tip.style.top = Math.max(0, y0 - tip.offsetHeight - 10) + 'px';
+      return;
+    }
+    const h = document.createElement('div'); h.className = 'cs-tip-head';
+    h.textContent = LV[S.level].tip + id + (S.level === 'smd' && r.commissioner ? ' · ' + r.commissioner : '');
+    const v = document.createElement('div'); v.className = 'cs-tip-val';
+    v.textContent = r[f] === '' ? 'Too little counted traffic for a rate' : fmtFor(f)(num(r[f])) + ' ' + UNIT[S.metric] + UNITTXT[msr()] + (S.level === 'city' ? '' : ' · rank ' + r[f + '_rank'] + ' of ' + (peerN() || n));
+    tip.append(h, v);
+    tip.hidden = false;
+    const [x, y] = d3.pointer(e, mapbox);
+    const bw = mapbox.clientWidth, tw = tip.offsetWidth, th = tip.offsetHeight;
+    tip.style.left = Math.max(0, Math.min(bw - tw, x + 12)) + 'px';
+    tip.style.top = Math.max(0, y - th - 10) + 'px';
+  }
+
+  function paintMap() {
+    const outl = dash.data('outlines');
+    const rows = rowsOf(S.level);
+    const legend = document.getElementById('cs-legend');
+    mapbox.dataset.source = 'outlines ' + S.level + (S.roads.size ? ' roads' : '');
+    legend.dataset.source = S.level;
+    root.querySelectorAll('.cs-checks .cs-roadkey').forEach((i) => { const k = i.dataset.key; i.style.height = ROAD[k].w + 'px'; i.style.background = roadColor(k); });
+    if (outl.status === 'error') { svg.style('display', 'none'); legend.replaceChildren(); return; }
+    svg.style('display', null);
+    if (outl.status !== 'ok') return;
+    drawOutlines(outl.data);
+    drawRoads();
+    if (!rows) { gFill.selectAll('path').style('fill', 'var(--cds-chart-muted)'); return; }
+    if (GRADE()) {
+      const gi = new Map(rows.map((r) => [r[S.level], LETTERS.indexOf(r.grade_letter)]));
+      gFill.selectAll('path').style('fill', (d) => { const i = gi.get(d.id); return i == null || i < 0 ? 'var(--cds-chart-muted)' : stepColor(i); });
+      const cnt = d3.rollup(rows, (v) => v.length, (r) => r.grade_letter);
+      legend.replaceChildren(...LETTERS.map((L, i) => {
+        const sp = document.createElement('span'); const sw = document.createElement('i'); sw.style.background = stepColor(i);
+        sp.append(sw, document.createTextNode(L + (rows.length > 1 ? ' (' + (cnt.get(L) || 0) + ')' : '')));
+        return sp;
+      }));
+      roadLegend(legend);
+      const sel0 = S.sel[S.level];
+      gSel.selectAll('path').data(rows.length > 1 ? gFill.selectAll('path').data().filter((d) => d.id === sel0) : [], (d) => d.id)
+        .join('path').attr('class', 'cs-selline').attr('d', (d) => d.path);
+      if (!gLabels.node().childNodes.length) placeLabels();
+      return;
+    }
+    const f = fieldOf(S.metric);
+    const byId = new Map(rows.map((r) => [r[S.level], num(r[f])]));
+    const vals = rows.map((r) => num(r[f])).filter((v) => v != null).sort(d3.ascending);
+    if (rows.length === 1) {
+      gFill.selectAll('path').style('fill', stepColor(2));
+      const s = document.createElement('span'); const sw = document.createElement('i'); sw.style.background = stepColor(2);
+      s.append(sw, document.createTextNode('All of DC: ' + (vals.length ? fmtFor(f)(vals[0]) : 'no value')));
+      legend.replaceChildren(s);
+      roadLegend(legend);
+      gSel.selectAll('*').remove();
+      return;
+    }
+    const thr = [0.2, 0.4, 0.6, 0.8].map((p) => d3.quantileSorted(vals, p));
+    const bin = (v) => d3.bisectRight(thr, v);
+    gFill.selectAll('path').style('fill', (d) => { const v = byId.get(d.id); return v == null ? 'var(--cds-chart-muted)' : stepColor(bin(v)); });
+    const fmt0 = fmtFor(f), fmt = (v) => fmt0(fmt0 === fInt ? Math.round(v) : v);  // whole-number measures get whole-number legend breaks
+    const edges = [vals[0], ...thr, vals[vals.length - 1]];
+    legend.replaceChildren(...STEPS.map((_, i) => {
+      const s = document.createElement('span');
+      const sw = document.createElement('i'); sw.style.background = stepColor(i);
+      s.append(sw, document.createTextNode(fmt(edges[i]) + ' to ' + fmt(edges[i + 1])));
+      return s;
+    }));
+    if (vals.length < rows.length) {
+      const s = document.createElement('span'); const sw = document.createElement('i'); sw.style.background = 'var(--cds-chart-muted)';
+      s.append(sw, document.createTextNode('No rate')); legend.append(s);
+    }
+    roadLegend(legend);
+    const sel = S.sel[S.level];
+    gSel.selectAll('path').data(gFill.selectAll('path').data().filter((d) => d.id === sel), (d) => d.id)
+      .join('path').attr('class', 'cs-selline').attr('d', (d) => d.path);
+    if (!gLabels.node().childNodes.length) placeLabels();
+  }
+
+  /* ---------- scorecard panel ---------- */
+  function setMarks(id) {
+    root.querySelectorAll('[data-cs-row]').forEach((el) => {
+      if (!only(el)) { delete el.dataset.source; delete el.dataset.where; return; }
+      el.dataset.source = S.level;
+      el.dataset.where = S.level + '=' + enc(id);
+    });
+    root.querySelectorAll('[data-cs-n]').forEach((el) => {
+      el.dataset.source = 'citywide'; el.dataset.row = '0'; el.dataset.field = nField();
+    });
+    root.querySelectorAll('[data-cs-measure]').forEach((el) => {
+      el.dataset.field = fieldOf(el.dataset.csMetric) + ('csRank' in el.dataset ? '_rank' : '');
+    });
+  }
+
+  function renderPanel() {
+    const id = S.sel[S.level];
+    setMarks(id);
+    document.getElementById('p-kind').textContent = LV[S.level].kind;
+    root.querySelectorAll('[data-cs-show]').forEach((el) => { el.hidden = !el.dataset.csShow.split(' ').includes(S.level); });
+    const pid = document.getElementById('p-id'); pid.dataset.field = S.level;
+    document.getElementById('p-sub-anc').hidden = S.level === 'smd';
+    document.getElementById('p-sub-smd').hidden = S.level !== 'smd';
+    document.getElementById('p-up').hidden = S.level !== 'smd';
+    document.getElementById('p-tiles-note').textContent = S.level === 'city'
+      ? 'Yearly averages for all of DC, 2023 to 2025, shown ' + MNAME[msr()] + '. There are no ranks at the city level.'
+      : 'Yearly averages, 2023 to 2025. Rank 1 means the most among the ' + LV[S.level].plural + ', compared ' + MNAME[msr()] + '.';
+    const rows = rowsOf(S.level), city = rowsOf('citywide');
+    const r = rows && rows.find((x) => x[S.level] === id);
+    root.querySelectorAll('[data-cs-row]').forEach((el) => {
+      if (!only(el)) return;
+      if (!r) { el.textContent = '—'; el.classList.add('dash-skeleton'); return; }
+      el.classList.remove('dash-skeleton');
+      const fld = el.dataset.field, raw = r[fld];
+      if (raw === '' || raw == null) { el.textContent = ''; return; }
+      if (fld === 'crashes_ytd_change_pct') { el.textContent = raw === '' ? '' : (num(raw) > 0 ? '+' : '') + raw; return; }
+      el.textContent = /^-?[\d.]+$/.test(String(raw)) && !/^(anc|smd|ward|area_sqmi)$/.test(fld) ? fmtFor(fld)(num(raw)) : raw;
+    });
+    root.querySelectorAll('[data-cs-n]').forEach((el) => { el.textContent = city ? fInt(num(city[0][nField()])) : '—'; });
+    const chg = document.getElementById('ytd-chg');
+    chg.hidden = !r || r.crashes_ytd_change_pct === '';
+    chg.className = r && num(r.crashes_ytd_change_pct) > 0 ? 'cs-up' : (r && num(r.crashes_ytd_change_pct) < 0 ? 'cs-down' : '');
+    const share = r ? num(r.counted_road_share_pct) : null;
+    const on = document.getElementById('split-on');
+    on.style.width = (share == null ? 0 : share) + '%'; on.style.background = dash.colors[0];
+    root.querySelector('.cs-k-on').style.background = dash.colors[0];
+    document.getElementById('traffic-context').classList.toggle('cs-active', msr() === 'vmt');
+    // tiles: pressed state and top-fifth pill
+    const n = peerN() || (rows ? rows.length : 0);
+    root.querySelectorAll('.cs-tile[data-metric]').forEach((t) => {
+      const m = t.dataset.metric, f = fieldOf(m), blank = !r || r[f] === '';
+      t.setAttribute('aria-pressed', String(m === S.metric));
+      if (m === 'deaths') { t.querySelector('.cs-tile-unit').textContent = ' people' + UNITTXT[msr()]; return; }
+      t.querySelector('.cs-tile-unit').textContent = (m === 'ksi' && msr() !== 'vmt' ? ' people' : '') + UNITTXT[msr()];
+      t.querySelector('.cs-tile-total').hidden = msr() === 'year';
+      t.querySelector('.cs-tile-rank').hidden = (!!r && blank) || S.level === 'city';
+      t.querySelector('.cs-tile-none').hidden = !(r && blank);
+      const pill = t.querySelector('.cs-pill');
+      pill.hidden = blank || S.level === 'city' || num(r[f + '_rank']) > Math.ceil(n * 0.2);
+    });
+    // chips: the areas one level down
+    const chips = document.getElementById('p-chips');
+    const smdRows = rowsOf('smd'), wardRows = rowsOf('ward');
+    chips.replaceChildren();
+    const chip = (text, src, fld, val, go) => {
+      const b = document.createElement('button');
+      b.type = 'button'; b.className = 'cs-chip'; b.textContent = text;
+      if (src) { b.dataset.source = src; b.dataset.field = fld; b.dataset.where = fld + '=' + enc(val); }
+      b.addEventListener('click', go); chips.append(b);
+    };
+    chips.dataset.source = { anc: 'smd', ward: 'smd', city: 'ward' }[S.level] || 'smd';
+    if (S.level === 'anc' && smdRows) {
+      smdRows.filter((x) => x.anc === id).forEach((x) => chip(x.smd, 'smd', 'smd', x.smd, () => { S.sel.smd = x.smd; setLevel('smd', true); }));
+    } else if (S.level === 'ward' && smdRows) {
+      [...new Set(smdRows.filter((x) => x.ward === id).map((x) => x.anc))].sort().forEach((a) => chip('ANC ' + a, null, null, null, () => { S.sel.anc = a; setLevel('anc', true); }));
+    } else if (S.level === 'city' && wardRows) {
+      wardRows.forEach((w) => chip('Ward ' + w.ward, null, null, null, () => { S.sel.ward = w.ward; setLevel('ward', true); }));
+    }
+    chips.hidden = S.level === 'smd';
+    renderGrade(r);
+    renderTrend(r);
+  }
+
+  function renderGrade(r) {
+    const box = document.getElementById('grade-box'), L = document.getElementById('g-letter');
+    const desc = document.getElementById('g-desc'), trd = document.getElementById('g-trend'), parts = document.getElementById('g-parts'), peers = document.getElementById('g-peers');
+    box.dataset.source = S.level;
+    L.dataset.source = S.level; L.dataset.field = 'grade';
+    if (S.level === 'city') { L.dataset.row = '0'; delete L.dataset.where; } else { delete L.dataset.row; L.dataset.where = S.level + '=' + enc(S.sel[S.level]); }
+    if (!r || !r.grade) { L.textContent = '—'; desc.textContent = ''; trd.textContent = ''; parts.replaceChildren(); peers.hidden = true; return; }
+    const li = LETTERS.indexOf(r.grade_letter);
+    L.textContent = r.grade;
+    L.style.background = stepColor(li); L.style.color = li >= 3 ? 'var(--color-panel)' : 'var(--color-fg)';
+    const b = (t) => { const x = document.createElement('b'); x.textContent = t; return x; };
+    const T = (t) => document.createTextNode(t);
+    const ch = (a, c) => { const d = num(a), e = num(c); return d ? Math.round((e / d - 1) * 100) : 0; };
+    const sgn = (v) => (v > 0 ? '+' : '') + v + '%';
+    if (S.level === 'city') {
+      document.getElementById('g-title').textContent = 'Safety grade against similar-size cities';
+      desc.replaceChildren(T('DC had '), b(r.peer_deaths_per_100k), T(' traffic deaths a year per 100,000 residents in 2018 to 2022, '), b(ordinal(+r.peer_rank) + ' lowest'), T(' of ' + r.peer_count + ' US cities with 500,000 to 1 million people. The typical city in that group had '), b(r.peer_median_deaths_per_100k), T('. That puts DC at ' + PEER_TXT[r.grade_letter] + '.'));
+      trd.replaceChildren(T(r.grade_sign === '+' ? 'Plus: ' : r.grade_sign === '-' ? 'Minus: ' : 'No sign: '), T('DC’s death rate changed '), b(sgn(+r.peer_change_pct)), T(' since 2008 to 2012, compared with '), b(sgn(+r.peer_median_change_pct)), T(' for the typical peer. The study ends in 2022. In DC’s own crash data for the last two years, crashes changed '), b(sgn(+r.crashes_2y_change_pct)), T(' and people hurt '), b(sgn(+r.hurt_2y_change_pct)), T('.'));
+      parts.replaceChildren(); parts.hidden = true;
+      renderPeers(peers); return;
+    }
+    peers.hidden = true; parts.hidden = false;
+    document.getElementById('g-title').textContent = 'Safety grade';
+    desc.replaceChildren(T('Harm here is '), b(vsTxt(r.harm_vs_dc, 'the DC average')), T(', which is ' + LETTER_TXT[r.grade_letter] + '.'));
+    const tv = num(r.trend_vs_dc_pct);
+    const lead = r.grade_sign === '+' ? 'Plus: improving faster than DC. ' : r.grade_sign === '-' ? 'Minus: getting worse compared with DC. ' : 'No sign: changing about as fast as DC. ';
+    trd.replaceChildren(T(lead + 'Comparing the last two years with the two before, crashes went from '), b(fInt(num(r.crashes_prev_2y))), T(' to '), b(fInt(num(r.crashes_last_2y))), T(' ('), b(sgn(ch(r.crashes_prev_2y, r.crashes_last_2y))), T(') and people hurt from '), b(fInt(num(r.hurt_prev_2y))), T(' to '), b(fInt(num(r.hurt_last_2y))), T(' ('), b(sgn(ch(r.hurt_prev_2y, r.hurt_last_2y))), T('). DC overall: crashes '), b(sgn(cityChg('crashes'))), T(', people hurt '), b(sgn(cityChg('hurt'))), T('.'));
+    const items = [['Serious injuries and deaths, per district', vsTxt(r.ksi_vs_dc, 'DC')], ['Pedestrians and cyclists hurt, per district', vsTxt(r.vru_vs_dc, 'DC')],
+      ['Crashes per vehicle mile', r.vmt_vs_typical === '' ? 'not rated (too little counted traffic)' : vsTxt(r.vmt_vs_typical, 'typical ' + LV[S.level].plural.replace(/s$/, ''))]];
+    parts.replaceChildren(...items.map(([k, v]) => { const x = document.createElement('li'); const a = document.createElement('span'); a.textContent = k; const c = document.createElement('span'); c.textContent = v; x.append(a, c); return x; }));
+  }
+  const ordinal = (n) => n + (n % 10 === 1 && n % 100 !== 11 ? 'st' : n % 10 === 2 && n % 100 !== 12 ? 'nd' : n % 10 === 3 && n % 100 !== 13 ? 'rd' : 'th');
+  const cityChg = (k) => { const c = rowsOf('city'); return c ? num(c[0][k + '_2y_change_pct']) : 0; };
+  function renderPeers(box) {
+    const d = rowsOf('peers');
+    box.hidden = false;
+    if (!d) { box.replaceChildren(); return; }
+    const width = Math.max(260, box.clientWidth || 300), rowH = 15, left = 118, height = d.length * rowH + 22;
+    box.replaceChildren();
+    const cap = document.createElement('span'); cap.className = 'cs-note'; cap.textContent = 'Traffic deaths a year per 100,000 residents, 2018 to 2022';
+    box.append(cap);
+    const sv = d3.select(box).append('svg').attr('width', '100%').attr('viewBox', `0 0 ${width} ${height}`).attr('role', 'img').attr('aria-label', 'Traffic deaths per 100,000 residents in similar-size cities');
+    const x = d3.scaleLinear([0, d3.max(d, (p) => +p.deaths_per_100k_2018_2022)], [left, width - 34]).nice();
+    const g = sv.selectAll('g').data(d).join('g').attr('transform', (p, i) => `translate(0,${i * rowH})`);
+    g.append('text').attr('x', left - 6).attr('y', rowH / 2).attr('text-anchor', 'end').attr('dominant-baseline', 'central').attr('class', (p) => (+p.is_dc ? 'cs-dc' : null)).text((p) => p.city);
+    g.append('rect').attr('x', left).attr('y', 2).attr('height', rowH - 4).attr('rx', 2).attr('width', (p) => x(+p.deaths_per_100k_2018_2022) - left)
+      .style('fill', (p) => (+p.is_dc ? dash.colors[0] : 'var(--cds-chart-muted)'));
+    g.append('text').attr('x', (p) => x(+p.deaths_per_100k_2018_2022) + 4).attr('y', rowH / 2).attr('dominant-baseline', 'central').attr('class', (p) => (+p.is_dc ? 'cs-dc' : null)).text((p) => d3.format('.1f')(+p.deaths_per_100k_2018_2022));
+    const med = d3.median(d, (p) => +p.deaths_per_100k_2018_2022);
+    sv.append('line').attr('x1', x(med)).attr('x2', x(med)).attr('y1', 0).attr('y2', d.length * rowH).attr('stroke', 'var(--color-fg)').attr('stroke-dasharray', '3 3').attr('stroke-opacity', 0.6);
+    sv.append('text').attr('x', x(med)).attr('y', d.length * rowH + 12).attr('text-anchor', 'middle').text('Typical city ' + d3.format('.1f')(med));
+  }
+
+  function renderTrend(r) {
+    const box = document.getElementById('cs-trend');
+    box.dataset.source = S.level;
+    document.getElementById('trend-title').textContent = LABEL[SER()] + ' by year';
+    const d = dash.data(S.level);
+    if (d.status === 'error') { box.replaceChildren(Object.assign(document.createElement('div'), { className: 'cs-fail', textContent: 'Failed to load' })); return; }
+    if (!r) { box.replaceChildren(); box.classList.add('dash-skeleton'); return; }
+    box.classList.remove('dash-skeleton');
+    const cols = (d.columns || Object.keys(r)).filter((c) => new RegExp('^' + SER() + '_\\d{4}$').test(c));
+    const data = cols.map((c) => ({ year: c.slice(-4), v: num(r[c]) }));
+    const last = data[data.length - 1].year;
+    const width = Math.max(240, box.clientWidth), height = 170;
+    box.replaceChildren();
+    const s = d3.select(box).append('svg').attr('width', '100%').attr('viewBox', `0 0 ${width} ${height}`);
+    const y = d3.scaleLinear([0, d3.max(data, (x) => x.v) || 1], [height - 22, 8]).nice();
+    const ticks = y.ticks(4).filter(Number.isInteger);
+    const tmp = s.append('text').attr('font-size', 12).text(fInt(y.domain()[1]));
+    const left = Math.ceil(tmp.node().getComputedTextLength()) + 10; tmp.remove();
+    const x = d3.scaleBand(data.map((p) => p.year), [left, width - 4]).padding(0.28);
+    s.append('g').selectAll('line').data(ticks).join('line')
+      .attr('x1', left).attr('x2', width - 4).attr('y1', (t) => y(t)).attr('y2', (t) => y(t))
+      .attr('stroke', 'var(--cds-chart-grid)');
+    s.append('g').attr('transform', `translate(${left - 6},0)`).call(d3.axisLeft(y).tickValues(ticks).tickFormat(fInt).tickSize(0))
+      .attr('font-size', null).attr('font-family', null).call((g) => g.select('.domain').remove());
+    s.append('g').attr('transform', `translate(0,${height - 22})`).call(d3.axisBottom(x).tickSize(0).tickPadding(6).tickFormat((t) => (x.step() < 40 ? "'" + t.slice(2) : t)))
+      .attr('font-size', null).attr('font-family', null).call((g) => g.select('.domain').attr('stroke', 'var(--cds-chart-axis)'));
+    const ttip = Object.assign(document.createElement('div'), { className: 'cs-tip', hidden: true });
+    box.append(ttip);
+    s.append('g').selectAll('rect').data(data).join('rect')
+      .attr('x', (p) => x(p.year)).attr('width', x.bandwidth()).attr('y', (p) => y(p.v)).attr('height', (p) => Math.max(0, y(0) - y(p.v)))
+      .attr('rx', 4).style('fill', dash.colors[0]).style('opacity', (p) => (p.year === last ? 0.45 : 1))
+      .on('mousemove', (e, p) => {
+        ttip.replaceChildren(Object.assign(document.createElement('div'), { className: 'cs-tip-head', textContent: p.year === last ? p.year + ' so far' : p.year }),
+          Object.assign(document.createElement('div'), { className: 'cs-tip-val', textContent: fInt(p.v) + ' ' + UNIT[SER()] }));
+        ttip.hidden = false;
+        const [px, py] = d3.pointer(e, box);
+        ttip.style.left = Math.max(0, Math.min(box.clientWidth - ttip.offsetWidth, px + 10)) + 'px';
+        ttip.style.top = Math.max(0, py - ttip.offsetHeight - 8) + 'px';
+      })
+      .on('mouseleave', () => { ttip.hidden = true; });
+  }
+
+  /* ---------- table ---------- */
+  function columns() {
+    const lead = {
+      city: [{ f: 'city', label: 'Area', txt: true }],
+      ward: [{ f: 'ward', label: 'Ward', txt: true }, { f: 'anc_count', label: 'ANCs' }, { f: 'smd_count', label: 'Districts' }],
+      anc: [{ f: 'anc', label: 'ANC', txt: true }, { f: 'ward', label: 'Ward', txt: true }],
+      smd: [{ f: 'smd', label: 'District', txt: true }, { f: 'commissioner', label: 'Commissioner', txt: true }]
+    }[S.level];
+    const mets = ['crashes', 'ksi', 'ped', 'bike'].map((m) => ({ f: fieldOf(m), label: SHORT[m], metric: m }));
+    if (S.level === 'ward' || S.level === 'city') mets.push({ f: fieldOf('deaths'), label: 'Deaths', metric: 'deaths' });
+    const gcol = { f: 'grade', label: 'Grade', txt: true, sortF: 'grade_sort' };
+    return S.level === 'city' || GRADE() ? [...lead, gcol, ...mets] : [...lead, gcol, ...mets, { f: fieldOf(S.metric) + '_rank', label: 'Rank' }];
+  }
+
+  function renderTable() {
+    const table = document.getElementById('cs-table');
+    table.dataset.source = S.level; table.dataset.rowKey = S.level;
+    document.getElementById('table-title').textContent = LV[S.level].title;
+    document.getElementById('table-note').textContent = 'Compared ' + MNAME[msr()] + ', 2023 to 2025 average.' + (S.level === 'city' ? '' : (GRADE() ? ' Sorted best grade first.' : ' Rank is for ' + LABEL[S.metric].toLowerCase() + '.') + ' Click a heading to sort, a row to open its scorecard.');
+    const cols = columns();
+    if (!S.sortKey || !cols.some((c) => c.f === S.sortKey)) { S.sortKey = GRADE() ? 'grade' : fieldOf(S.metric); S.sortDir = GRADE() ? 1 : -1; }
+    const thead = document.getElementById('cs-thead');
+    thead.replaceChildren(...cols.map((c) => {
+      const th = document.createElement('th');
+      th.dataset.field = c.f; if (c.txt) th.className = 'cs-txt';
+      if (S.sortKey === c.f) th.setAttribute('aria-sort', S.sortDir < 0 ? 'descending' : 'ascending');
+      const b = document.createElement('button'); b.type = 'button';
+      b.textContent = c.label + (S.sortKey === c.f ? (S.sortDir < 0 ? ' ↓' : ' ↑') : '');
+      b.addEventListener('click', () => {
+        if (S.sortKey === c.f) S.sortDir = -S.sortDir; else { S.sortKey = c.f; S.sortDir = c.txt || c.sortF || /_rank$/.test(c.f) ? 1 : -1; }
+        renderTable();
+      });
+      th.append(b); return th;
+    }));
+    const tbody = document.getElementById('cs-tbody');
+    const rows = rowsOf(S.level);
+    if (!rows) { tbody.replaceChildren(); return; }
+    const q = S.filter.trim().toLowerCase();
+    const sortCol = cols.find((c) => c.f === S.sortKey);
+    let list = rows.filter((r) => !q || [r[S.level], r.commissioner || '', r.anc || ''].some((v) => String(v).toLowerCase().includes(q)));
+    list = list.slice().sort((a, b) => {
+      const sk = sortCol.sortF || S.sortKey, isTxt = sortCol.txt && !sortCol.sortF;
+      const va = isTxt ? String(a[sk]) : num(a[sk]);
+      const vb = isTxt ? String(b[sk]) : num(b[sk]);
+      if (va == null || vb == null) return (va == null) - (vb == null);
+      return (va < vb ? -1 : va > vb ? 1 : 0) * S.sortDir;
+    });
+    const maxBy = {}; cols.filter((c) => c.metric).forEach((c) => { maxBy[c.f] = d3.max(rows, (r) => num(r[c.f])) || 1; });
+    const sel = S.sel[S.level];
+    tbody.replaceChildren(...list.map((r) => {
+      const tr = document.createElement('tr');
+      tr.dataset.key = r[S.level];
+      if (r[S.level] === sel) tr.className = 'cs-on';
+      cols.forEach((c) => {
+        const td = document.createElement('td');
+        if (c.txt) { td.className = 'cs-txt'; td.textContent = r[c.f] || ''; }
+        else if (r[c.f] === '' || r[c.f] == null) td.textContent = '';
+        else if (c.metric && c.f === fieldOf(S.metric)) {
+          const bar = document.createElement('span'); bar.className = 'cs-bar';
+          bar.style.width = Math.round(36 * num(r[c.f]) / maxBy[c.f]) + 'px';
+          td.append(bar, document.createTextNode(fmtFor(c.f)(num(r[c.f]))));
+        } else td.textContent = fmtFor(c.f)(num(r[c.f]));
+        tr.append(td);
+      });
+      return tr;
+    }));
+  }
+  document.getElementById('cs-tbody').addEventListener('click', (e) => {
+    const tr = e.target.closest('tr[data-key]');
+    if (tr) select(tr.dataset.key, true);
+  });
+  document.getElementById('cs-filter').addEventListener('input', (e) => { S.filter = e.target.value; renderTable(); });
+
+  /* ---------- controls ---------- */
+  function select(id, zoomIn) {
+    S.sel[S.level] = id;
+    if (S.level === 'smd') { const r = (rowsOf('smd') || []).find((x) => x.smd === id); if (r) { S.sel.anc = r.anc; S.sel.ward = r.ward; } }
+    if (S.level === 'anc') { const r = (rowsOf('smd') || []).find((x) => x.anc === id); if (r) S.sel.ward = r.ward; }
+    gSel.selectAll('*').remove();
+    render();
+    if (zoomIn) zoomTo(id);
+  }
+  function setLevel(level, zoomIn) {
+    S.level = level;
+    root.querySelectorAll('[data-level]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.level === level)));
+    gSel.selectAll('*').remove(); gLabels.selectAll('*').remove();
+    render();
+    if (zoomIn) zoomTo(S.sel[level]); else placeLabels();
+  }
+  root.querySelectorAll('[data-level]').forEach((b) => b.addEventListener('click', () => setLevel(b.dataset.level, false)));
+  root.querySelectorAll('[data-measure]').forEach((b) => b.addEventListener('click', () => {
+    S.measure = b.dataset.measure;
+    root.querySelectorAll('[data-measure]').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+    S.sortKey = null; render();
+  }));
+
+  /* About tab: table-of-contents links scroll within the tab; the current section is highlighted */
+  root.querySelectorAll('.ab-toc a').forEach((a) => a.addEventListener('click', (e) => {
+    e.preventDefault();
+    const t = document.getElementById(a.getAttribute('href').slice(1));
+    if (t) t.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' });
+  }));
+  if ('IntersectionObserver' in window) {
+    const links = new Map([...root.querySelectorAll('.ab-toc a')].map((a) => [a.getAttribute('href').slice(1), a]));
+    const io = new IntersectionObserver((ents) => {
+      ents.forEach((en) => { if (en.isIntersecting) { links.forEach((l) => l.removeAttribute('aria-current')); const l = links.get(en.target.id); if (l) l.setAttribute('aria-current', 'true'); } });
+    }, { rootMargin: '0px 0px -70% 0px' });
+    root.querySelectorAll('.ab-section').forEach((sec) => io.observe(sec));
+  }
+  const metricSel = document.getElementById('cs-metric');
+  metricSel.addEventListener('change', () => { S.metric = metricSel.value; S.sortKey = null; render(); });
+  root.querySelectorAll('.cs-tile[data-metric]').forEach((t) => t.addEventListener('click', () => { S.metric = t.dataset.metric; metricSel.value = S.metric; S.sortKey = null; render(); }));
+  document.getElementById('p-up').addEventListener('click', () => { setLevel('anc', true); });
+  const find = document.getElementById('cs-find'), findMsg = document.getElementById('cs-find-msg');
+  find.addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter') return;
+    const q = find.value.trim().toUpperCase().replace(/^(ANC|SMD)\s*/, '');
+    if (!q) return;
+    const wm = q.match(/^(?:WARD\s*)?([1-8])$/);
+    if (wm) { S.sel.ward = wm[1]; findMsg.textContent = ''; setLevel('ward', true); return; }
+    if (/^(DC|CITY|WASHINGTON|WASHINGTON,? DC)$/.test(q)) { findMsg.textContent = ''; setLevel('city', false); return; }
+    const anc = (rowsOf('anc') || []).find((r) => r.anc.toUpperCase() === q);
+    const smd = (rowsOf('smd') || []).find((r) => r.smd.toUpperCase() === q);
+    if (anc) { S.sel.anc = anc.anc; findMsg.textContent = ''; setLevel('anc', true); }
+    else if (smd) { S.sel.smd = smd.smd; S.sel.anc = smd.anc; findMsg.textContent = ''; setLevel('smd', true); }
+    else findMsg.textContent = 'Nothing named ' + find.value.trim() + '. Try Ward 4, 4D or 4D02.';
+  });
+
+  /* ---------- tabs ---------- */
+  const views = ['scorecard-view', 'about'];
+  function showView(id, fromLink) {
+    views.forEach((v) => { document.getElementById(v).hidden = v !== id; });
+    root.querySelectorAll('[data-tab]').forEach((b) => b.setAttribute('aria-selected', String(b.dataset.tab === id)));
+    dash.setLink(id === 'about' ? 'about' : 'scorecard-view');
+    if (id === 'scorecard-view') { drawnLevel = null; gFill.selectAll('*').remove(); gLines.selectAll('*').remove(); gRoads.selectAll('*').remove(); gSel.selectAll('*').remove(); gLabels.selectAll('*').remove(); }
+    render();
+    if (!fromLink) root.scrollIntoView({ block: 'start' });
+  }
+  root.querySelectorAll('[data-tab], [data-goto]').forEach((b) => b.addEventListener('click', () => showView(b.dataset.tab || b.dataset.goto)));
+
+  function fillCitywide() {
+    const city = rowsOf('citywide'), anc = rowsOf('anc'), cityRow = rowsOf('city');
+    root.querySelectorAll('#takeaway [data-source], #about [data-source="citywide"], #about [data-source="city"]').forEach((el) => {
+      let v = null;
+      if (el.dataset.source === 'city' && cityRow) v = cityRow[0][el.dataset.field];
+      if (el.dataset.source === 'citywide' && city) v = city[0][el.dataset.field];
+      if (el.dataset.source === 'anc' && anc) { const r = anc.find((x) => +x.ksi_per_sqmi_rank === 1); v = r && r.anc; }
+      if (v == null) { el.textContent = '—'; el.classList.add('dash-skeleton'); return; }
+      el.classList.remove('dash-skeleton');
+      el.textContent = /^[\d.]+$/.test(String(v)) && !/vehicle_miles_billions$/.test(el.dataset.field) ? fmtFor(el.dataset.field)(num(v)) : v;
+    });
+  }
+
+  function render() {
+    const deathsOk = S.level === 'ward' || S.level === 'city';
+    const od = document.getElementById('opt-deaths'); od.hidden = !deathsOk; od.disabled = !deathsOk;
+    if (DEATHS() && !deathsOk) { S.metric = 'ksi'; metricSel.value = 'ksi'; S.sortKey = null; }
+    fillCitywide();
+    if (document.getElementById('scorecard-view').hidden) return;
+    const lvl = LV[S.level].by;
+    document.getElementById('map-title').textContent = GRADE() ? 'Safety grade, ' + lvl : DEATHS() ? 'Traffic deaths, ' + MNAME[msr()] + ', ' + lvl + ' (2019 to 2025 average)' : LABEL[S.metric] + ', ' + MNAME[msr()] + ', ' + lvl;
+    document.getElementById('msr-district').hidden = S.level === 'smd';
+    root.querySelectorAll('[data-measure]').forEach((x) => x.setAttribute('aria-pressed', String(x.dataset.measure === msr())));
+    document.getElementById('measure-note').textContent = GRADE() ? 'Grades combine serious injuries and deaths, pedestrians and cyclists hurt, and crashes per vehicle mile, each compared with DC. The plus or minus shows whether an area is improving or worsening compared with DC over the last two years. Compare by changes the tiles and table only.' : DEATHS() ? 'Traffic deaths use the yearly average for 2019 to 2025, seven full years, because three years has too few deaths to compare wards fairly. ' + (msr() === 'vmt' ? 'Per vehicle mile counts deaths on DDOT-counted streets, leaving out freeways.' : MNOTE[msr()]) : MNOTE[msr()];
+    document.getElementById('map-note').textContent = S.level === 'city'
+      ? 'All of DC is one area at this level. Ward lines are shown for reference; pick a ward chip to drill in.'
+      : GRADE() ? 'Darker areas have worse grades. Drag to move; use the buttons, or pinch, to zoom.' + (S.level === 'smd' ? ' District codes appear as you zoom in.' : '')
+      : 'Darker areas rank higher (each shade is a fifth of the ' + LV[S.level].plural + '). Drag to move; use the buttons, or pinch, to zoom.' + (S.level === 'smd' ? ' District codes appear as you zoom in.' : '');
+    if (drawnLevel !== S.level) { gFill.selectAll('*').remove(); gLines.selectAll('*').remove(); }
+    paintMap();
+    renderPanel();
+    renderTable();
+    const city = rowsOf('citywide');
+    const thru = root.querySelector('#ytd [data-field="data_through"]');
+    if (city) thru.textContent = city[0].data_through;
+  }
+
+  if (location.hash.slice(1) === 'about') { views.forEach((v) => { document.getElementById(v).hidden = v !== 'about'; }); root.querySelectorAll('[data-tab]').forEach((b) => b.setAttribute('aria-selected', String(b.dataset.tab === 'about'))); }
+  dash.onData(render);
+})();
+</script>
+<script>
+/* ?q=4D02 from the home page search opens that area's scorecard */
+(function () {
+  const q = new URLSearchParams(location.search).get('q'); if (!q) return;
+  let done = false;
+  dash.onData(() => {
+    if (done || dash.data('smd').status !== 'ok' || dash.data('anc').status !== 'ok' || dash.data('outlines').status !== 'ok') return;
+    done = true;
+    const f = document.getElementById('cs-find'); f.value = q;
+    setTimeout(() => { f.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' })); document.getElementById('map').scrollIntoView({ block: 'start' }); }, 50);
+  });
+})();
+</script>
+</main>
+<footer class="site-foot"><div class="wrap">
+  <svg class="flag" viewBox="0 0 40 26" aria-hidden="true" focusable="false"><path fill="currentColor" d="M9.00,0.60L10.03,3.78L13.37,3.78L10.67,5.74L11.70,8.92L9.00,6.96L6.30,8.92L7.33,5.74L4.63,3.78L7.97,3.78ZM20.00,0.60L21.03,3.78L24.37,3.78L21.67,5.74L22.70,8.92L20.00,6.96L17.30,8.92L18.33,5.74L15.63,3.78L18.97,3.78ZM31.00,0.60L32.03,3.78L35.37,3.78L32.67,5.74L33.70,8.92L31.00,6.96L28.30,8.92L29.33,5.74L26.63,3.78L29.97,3.78ZM0 11.5H40V16.5H0ZM0 20H40V25H0Z"/></svg>
+  <div>
+    <p>DC Scorecard is an independent, nonpartisan project that grades how DC is doing using the District's own public data. It is not affiliated with the DC government.</p>
+    <p>Sources and methods are listed on each scorecard. Last updated October 24, 2026.</p>
+  </div>
+</div></footer>
+<script>
+/* Opened straight from disk: folder links need index.html added (a web server does this automatically) */
+if (location.protocol === 'file:') {
+  const fix = (u) => u.replace(/^([^?#]*\/|\.\/?|)(?=[?#]|$)/, (m) => (m === '' || m === '.' || m === './' ? './' : m) + 'index.html');
+  document.querySelectorAll('a[href]').forEach((a) => { const h = a.getAttribute('href'); if (!/^[a-z]+:/i.test(h) && !h.startsWith('#')) a.setAttribute('href', fix(h)); });
+  document.querySelectorAll('form[action]').forEach((f) => { f.setAttribute('action', fix(f.getAttribute('action'))); });
+}
+</script>
+</body>
+</html>
