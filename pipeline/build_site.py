@@ -231,7 +231,7 @@ def shell(title, desc, body, current, extra_head='', root='/'):
   {FLAG}
   <div>
     <p>{SITE} is an independent, nonpartisan project that grades how DC is doing using the District's own public data. It is not affiliated with the DC government.</p>
-    <p>Sources and methods are listed on each scorecard. Last updated {UPDATED}.</p>
+    <p>Sources and methods are listed on each scorecard. Last updated {UPDATED}. Questions or corrections: <a href="mailto:contact@dcscorecard.org">contact@dcscorecard.org</a>.</p>
   </div>
 </div></footer>
 {FIXLINKS}
@@ -358,7 +358,7 @@ about = f'''<div class="prose">
   <h2>Data</h2>
   <p>Scorecards use DC Open Data (opendata.dc.gov) and other public sources named on each page. Numbers are refreshed as new data is released, and each page shows how current it is.</p>
   <h2>Contact</h2>
-  <p>Questions, corrections or ideas for new measures: add your contact email here.</p>
+  <p>Questions, corrections or ideas for new measures are welcome. Email <a href="mailto:contact@dcscorecard.org">contact@dcscorecard.org</a>. If you spot a number that looks wrong, include the area and the measure, and it will be checked and corrected.</p>
 </div>'''
 open(S + '/about/index.html', 'w').write(shell(f'About | {SITE}', f'What {SITE} is, how it grades DC, and where the data comes from.', about, '/about/', root='../'))
 open(S + '/404.html', 'w').write(shell(f'Page not found | {SITE}', 'Page not found', '<div class="prose"><h1>Page not found</h1><p>That page does not exist. <a href="/">Go to the home page</a>.</p></div>', '', root='/'))

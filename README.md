@@ -139,4 +139,4 @@ The scripts were written for this project's own runs, so file paths may need adj
 
 ## Contact
 
-Questions, corrections or ideas for new measures are welcome. Please [open an issue](https://github.com/madella1/dc-scorecard/issues) on this repository.
+Questions, corrections or ideas for new measures are welcome. Email **[contact@dcscorecard.org](mailto:contact@dcscorecard.org)** or [open an issue](https://github.com/madella1/dc-scorecard/issues) on this repository.
