@@ -4,7 +4,7 @@
 
 DC Scorecard grades the District of Columbia and each of its 8 wards, 46 Advisory Neighborhood Commissions (ANCs) and 345 single-member districts using the city's own public data. Each grade shows where an area stands today and whether it is getting better or worse.
 
-**Live site:** https://madella1.github.io/dc-scorecard/
+**Live site:** https://dcscorecard.org
 
 The first scorecard covers **traffic safety**. Others are planned: public safety, city services (311), affordability, growth, land use, fiscal health and, eventually, resident satisfaction.
 
