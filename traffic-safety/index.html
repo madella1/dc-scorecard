@@ -975,14 +975,14 @@
     const peerYears = rowsOf('peeryears');
     if (S.level === 'city' && m === 'deaths' && peerYears) {
       federal = true;
-      data = peerYears.map((p) => ({ year: String(p.year), v: +p.dc_per_100k, l: p.source === 'police' || !num(p.peer_median_per_100k) ? null : num(p.peer_median_per_100k), pre: p.source === 'police' }));
+      data = peerYears.map((p) => ({ year: String(p.year), v: +p.dc_per_100k, l: p.source === 'police' || !num(p.peer_median_per_100k) ? null : num(p.peer_median_per_100k), pre: p.source === 'police', c: num(p.dc_deaths) }));
       title = 'Traffic deaths per 100,000 residents by year'; unit = 'per 100,000 residents';
       lineName = 'Typical peer city'; barName = 'DC';
     } else {
       const nd = S.level === 'smd' ? 1 : +r.smd_count || 1;
       const city = S.level === 'city' ? null : (rowsOf('city') || [])[0];
       data = years.map((y) => {
-        const p = { year: y, v: val(r, y, nd) };
+        const p = { year: y, v: val(r, y, nd), c: num(r[m + '_' + y]) };
         if (city) p.l = M === 'year' ? num(city[m + '_' + y]) / nAreas : val(city, y, +city.smd_count || 345);
         return p;
       });
@@ -1015,7 +1015,8 @@
     box.append(ttip);
     const show = (e, p) => {
       const rows = [Object.assign(document.createElement('div'), { className: 'cs-tip-head', textContent: (partial(p.year) ? p.year + ' so far' : p.year) + (p.pre ? ' (preliminary, police reports)' : '') }),
-        Object.assign(document.createElement('div'), { className: 'cs-tip-val', textContent: barName + ': ' + vf(p.v) + ' ' + unit })];
+        Object.assign(document.createElement('div'), { className: 'cs-tip-val', textContent: barName + ': ' + vf(p.v) + ' ' + (m === 'deaths' && M === 'year' && !federal && p.v === 1 ? 'person killed' : unit)
+          + (m === 'deaths' && (federal || M !== 'year') && p.c != null ? ' (' + fInt(p.c) + (p.c === 1 ? ' death)' : ' deaths)') : '') })];
       if (lineName && p.l != null) rows.push(Object.assign(document.createElement('div'), { className: 'cs-tip-val', textContent: lineName + ': ' + vf(p.l) }));
       ttip.replaceChildren(...rows); ttip.hidden = false;
       const [px, py] = d3.pointer(e, box);
