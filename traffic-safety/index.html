@@ -975,7 +975,7 @@
     const peerYears = rowsOf('peeryears');
     if (S.level === 'city' && m === 'deaths' && peerYears) {
       federal = true;
-      data = peerYears.map((p) => ({ year: String(p.year), v: +p.dc_per_100k, l: +p.peer_median_per_100k }));
+      data = peerYears.map((p) => ({ year: String(p.year), v: +p.dc_per_100k, l: p.source === 'police' || !num(p.peer_median_per_100k) ? null : num(p.peer_median_per_100k), pre: p.source === 'police' }));
       title = 'Traffic deaths per 100,000 residents by year'; unit = 'per 100,000 residents';
       lineName = 'Typical peer city'; barName = 'DC';
     } else {
@@ -990,7 +990,8 @@
       if (M !== 'year') { const SH = { district: 'per district', sqmi: 'per square mile', vmt: 'per 100 million vehicle miles' }; title = LABEL[m] + ' ' + SH[M] + ', by year'; unit = unit + ' ' + SH[M]; }
     }
     document.getElementById('trend-title').textContent = title;
-    const last = federal ? null : data[data.length - 1].year;
+    const last = data[data.length - 1].year, through = ((rowsOf('citywide') || [])[0] || {}).data_through || '';
+    const partial = (y) => y === last && through && !through.endsWith('-12-31') && through.slice(0, 4) === y;
     const width = Math.max(240, box.clientWidth), height = 170;
     box.replaceChildren();
     const s = d3.select(box).append('svg').attr('width', '100%').attr('viewBox', `0 0 ${width} ${height}`);
@@ -1013,7 +1014,7 @@
     const ttip = Object.assign(document.createElement('div'), { className: 'cs-tip', hidden: true });
     box.append(ttip);
     const show = (e, p) => {
-      const rows = [Object.assign(document.createElement('div'), { className: 'cs-tip-head', textContent: p.year === last ? p.year + ' so far' : p.year }),
+      const rows = [Object.assign(document.createElement('div'), { className: 'cs-tip-head', textContent: (partial(p.year) ? p.year + ' so far' : p.year) + (p.pre ? ' (preliminary, police reports)' : '') }),
         Object.assign(document.createElement('div'), { className: 'cs-tip-val', textContent: barName + ': ' + vf(p.v) + ' ' + unit })];
       if (lineName && p.l != null) rows.push(Object.assign(document.createElement('div'), { className: 'cs-tip-val', textContent: lineName + ': ' + vf(p.l) }));
       ttip.replaceChildren(...rows); ttip.hidden = false;
@@ -1023,7 +1024,7 @@
     };
     s.append('g').selectAll('rect').data(data).join('rect')
       .attr('x', (p) => x(p.year)).attr('width', x.bandwidth()).attr('y', (p) => y(p.v || 0)).attr('height', (p) => Math.max(0, y(0) - y(p.v || 0)))
-      .attr('rx', 4).style('fill', dash.colors[0]).style('opacity', (p) => (p.year === last ? 0.45 : 1));
+      .attr('rx', 4).style('fill', dash.colors[0]).style('opacity', (p) => (partial(p.year) || p.pre ? 0.45 : 1));
     if (lineName) {
       const pts = data.filter((p) => p.l != null && !isNaN(p.l));
       const cx = (p) => x(p.year) + x.bandwidth() / 2;
@@ -1036,9 +1037,10 @@
     s.append('g').selectAll('rect').data(data).join('rect').attr('x', (p) => x(p.year) - (x.step() - x.bandwidth()) / 2).attr('width', x.step())
       .attr('y', 0).attr('height', height - 22).attr('fill', 'transparent').on('mousemove', show).on('mouseleave', () => { ttip.hidden = true; });
     const item = (cls, txt) => { const sp = document.createElement('span'); const i = document.createElement('i'); i.className = cls; if (!cls) i.style.background = dash.colors[0]; sp.append(i, txt); return sp; };
-    key.replaceChildren(item('', barName), ...(lineName ? [item('cs-k-line', lineName)] : []));
+    const pre = item('', 'Preliminary (police reports)'); pre.firstChild.style.opacity = 0.45;
+    key.replaceChildren(item('', barName + (federal ? ' (federal data)' : '')), ...(federal && data.some((p) => p.pre) ? [pre] : []), ...(lineName ? [item('cs-k-line', lineName)] : []));
     note.textContent = federal
-      ? 'Federal fatality data (FARS) for DC and the typical (median) city of 500,000 to 1 million people, the same data as the city grade. Counts can differ slightly from the police crash data used elsewhere.'
+      ? 'Federal fatality data (FARS) for DC and the typical (median) city of 500,000 to 1 million people, the same data as the city grade. Years after the latest federal release are preliminary, from DC police crash reports, and will be replaced when federal data comes out. Peer cities have no preliminary figures, so the line stops there.' + (partial(last) ? ' ' + last + ' is the year so far.' : '')
       : (m === 'deaths' ? 'Police crash counts, which can differ from DC\u2019s official totals, most in 2016 and 2017. ' : '') + (lineName ? (M === 'year' ? 'The line is the DC total split evenly across all ' + nAreas + ' ' + LV[S.level].plural + '. ' : 'The line is the rate for DC as a whole. ') : '') + 'The lighter bar is 2026 so far. Hover a year for its numbers.';
   }
 

@@ -102,7 +102,7 @@ The CSV files in `data/traffic-safety/` hold every number on the site:
 | `dc-crashes-by-ward.csv` | One row per ward |
 | `dc-crashes-city.csv` and `dc-crashes-citywide.csv` | DC as a whole |
 | `dc-peer-cities.csv` | Traffic deaths per 100,000 residents for DC and its peer cities, latest three years and the three before |
-| `dc-peer-years.csv` | Traffic deaths per 100,000 residents each year since 2018, for DC and the typical peer city |
+| `dc-peer-years.csv` | Traffic deaths per 100,000 residents each year since 2018, for DC and the typical peer city. Years after the latest federal release are preliminary DC figures from police crash reports (`source` = police) |
 
 Each area file includes grades, measures, ranks and yearly counts. If you use them, please credit DC Open Data and DDOT as the sources and DC Scorecard as the compiler.
 
