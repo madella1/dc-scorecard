@@ -137,6 +137,7 @@ The scripts were written for this project's own runs, so file paths may need adj
 ## Limits
 
 - Only police-reported crashes are included, so minor crashes are undercounted.
+- A crash within about 20 yards of a district line (usually on a border street) is split evenly between the districts on each side, so some counts are fractions.
 - Yearly charts start in 2016. Earlier records in DC's crash file are incomplete and code serious injuries differently, so they can't be compared with later years. Police death counts for 2016 and 2017 run above DC's official totals, so death averages use 2019 to 2025.
 - Police records can miss someone who dies days after a crash, so death counts may run slightly below DC's official totals.
 - Busy commuter roads raise an area's counts no matter what residents do. The per vehicle mile view helps separate road risk from traffic volume.

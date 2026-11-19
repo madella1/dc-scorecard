@@ -83,18 +83,22 @@ with open(CSV, encoding='utf-8-sig') as fh:
         ped = sum(I(row,k) for k in ('MAJORINJURIES_PEDESTRIAN','MINORINJURIES_PEDESTRIAN','FATAL_PEDESTRIAN'))
         bike = sum(I(row,k) for k in ('MAJORINJURIES_BICYCLIST','MINORINJURIES_BICYCLIST','FATAL_BICYCLIST'))
         spd = 1 if I(row,'SPEEDING_INVOLVED') > 0 else 0
-        a = agg[hit]
-        a['crashes'][y] += 1; a['ksi'][y] += maj + fat; a['fatal'][y] += fat
-        a['ped'][y] += ped; a['bike'][y] += bike; a['speed'][y] += spd
+        # a crash within about 20 yards of a district line (usually a border street) is split evenly between the
+        # districts on each side, in every measure, so the same crash counts the same way everywhere
+        own = owners(pt) or [hit]; w = 1 / len(own)
+        on_counted = False
         if on_freeway(row['ROUTEID'], pt, 0.0005):
             fw_crashes[y] += 1
         elif row['ROUTEID'] in ROUTES or len(SEGTREE.query(pt, predicate='dwithin', distance=0.0003)):
-            a['crashes_on'][y] += 1
-            own = owners(pt) or [hit]
-            for o in own:
-                b = agg[o]; w = 1 / len(own)
-                b['crashes_c'][y] += w; b['ksi_c'][y] += (maj + fat) * w; b['ped_c'][y] += ped * w; b['bike_c'][y] += bike * w; b['fatal_c'][y] += fat * w
-        if y in (2025, 2026): ytd_rows.append((hit, dt, 1, maj+fat, ped, bike))
+            on_counted = True
+        for o in own:
+            a = agg[o]
+            a['crashes'][y] += w; a['ksi'][y] += (maj + fat) * w; a['fatal'][y] += fat * w
+            a['ped'][y] += ped * w; a['bike'][y] += bike * w; a['speed'][y] += spd * w
+            if on_counted:
+                a['crashes_on'][y] += w
+                a['crashes_c'][y] += w; a['ksi_c'][y] += (maj + fat) * w; a['ped_c'][y] += ped * w; a['bike_c'][y] += bike * w; a['fatal_c'][y] += fat * w
+            if y in (2025, 2026): ytd_rows.append((o, dt, w, (maj + fat) * w, ped * w, bike * w))
 
 # annual vehicle miles on counted roads, by district (pieces of each segment assigned by midpoint)
 vmt = collections.Counter()

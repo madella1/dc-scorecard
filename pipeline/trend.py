@@ -32,6 +32,7 @@ with open(CSV, encoding='utf-8-sig') as fh:
         if dt < P1[0] or dt > END: continue
         try: pt = Point(float(row['LONGITUDE']), float(row['LATITUDE']))
         except: continue
+        own = [smds[j]['id'] for j in tree.query(pt, predicate='dwithin', distance=0.0002)]  # border crashes split, as in process.py
         hit = None
         for i in tree.query(pt):
             if smds[i]['geom'].covers(pt): hit = smds[i]['id']; break
@@ -44,7 +45,9 @@ with open(CSV, encoding='utf-8-sig') as fh:
                                       'FATAL_BICYCLIST','FATAL_DRIVER','FATAL_PEDESTRIAN','FATALPASSENGER','FATALOTHER'))
         vru = sum(I(row, k) for k in ('MINORINJURIES_PEDESTRIAN','MINORINJURIES_BICYCLIST'))
         p = '2' if dt >= P2[0] else '1'
-        cnt[hit]['c' + p] += 1; cnt[hit]['h' + p] += ksi + vru
+        own = own or [hit]
+        for o in own:
+            cnt[o]['c' + p] += 1 / len(own); cnt[o]['h' + p] += (ksi + vru) / len(own)
 json.dump(cnt, open(OUT, 'w'))
 t = {k: sum(v[k] for v in cnt.values()) for k in ('c1', 'c2', 'h1', 'h2')}
 print(t, 'crash change', round(t['c2'] / t['c1'] - 1, 3), 'hurt change', round(t['h2'] / t['h1'] - 1, 3))

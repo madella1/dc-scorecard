@@ -22,7 +22,7 @@
 </div></header>
 <div class="bars" aria-hidden="true"></div>
 <main class="wrap">
-<p class="page-note">Crash data through 2026-11-16. Updated October 24, 2026.</p>
+<p class="page-note">Crash data through November 16, 2026.</p>
 <style>
 /* Layout: header + controls, then map card beside the scorecard panel (stacks when narrow), then a full-width ranking table and method notes. */
 .cs { font-family: var(--font-anthropic-sans); display: grid; gap: var(--cds-gap-lg); color: var(--color-fg); }
@@ -498,7 +498,7 @@
           <ul>
             <li><b>Boundaries.</b> Each crash is placed by its reported location inside the 2023 ANC and district boundaries, the ones used in this year's elections.</li>
             <li><b>Wards</b> are built from their single-member districts using DC's 2022 ward boundaries. Every district sits at least 97% inside one ward. The ward labels in the crash records are inconsistent in places, so they are not used.</li>
-            <li><b>Edges.</b> Crashes recorded just outside any district, usually on a boundary street, go to the nearest district within about 65 yards. Only 5 crashes since 2016 fell outside DC entirely.</li>
+            <li><b>Border streets.</b> District lines usually run down the middle of a street, so which side a crash lands on mostly depends on where the report's pin was dropped. A crash within about 20 yards of a district line is split evenly between the districts on each side, in every view. That's why some yearly counts are fractions. Crashes just outside any district go to the nearest one within about 65 yards. Only 5 crashes since 2016 fell outside DC entirely.</li>
             <li><b>Bad records.</b> A few hundred records with impossible dates (such as 1825 or 1900) and about 1,400 with no date were left out. 15 road segments in DDOT's traffic file share one location near the Capitol, a mapping error, and were dropped (about 0.2% of traffic).</li>
           </ul>
         </section>
@@ -545,7 +545,7 @@
   const LABEL = { deaths: 'Traffic deaths', grade: 'Safety grade', crashes: 'All crashes', ksi: 'Serious injuries and deaths', ped: 'Pedestrians injured or killed', bike: 'Cyclists injured or killed' };
   const SHORT = { crashes: 'Crashes', ksi: 'Serious inj. and deaths', ped: 'Pedestrians', bike: 'Cyclists' };
   const UNIT = { deaths: 'people killed', crashes: 'crashes', ksi: 'people', ped: 'pedestrians', bike: 'cyclists' };
-  const fInt = d3.format(','), f1 = d3.format(',.1f');
+  const fInt = d3.format(',.0f'), f1 = d3.format(',.1f');
   const LV = {
     city: { kind: 'Washington,', plural: 'areas', by: 'for all of DC', tip: 'Washington, ', title: 'All of DC', line: 'ward' },
     ward: { kind: 'Ward', plural: 'wards', by: 'by ward', tip: 'Ward ', title: 'All wards', line: null },
@@ -1000,7 +1000,7 @@
     let ticks = y.ticks(4); if (y.domain()[1] >= 4) ticks = ticks.filter(Number.isInteger);
     const step = ticks.length > 1 ? ticks[1] - ticks[0] : 1;
     const tf = step >= 1 ? fInt : step >= 0.1 ? d3.format(',.1f') : d3.format(',.2f');
-    const vf = (v) => (v == null || isNaN(v) ? 'n/a' : Math.abs(v) >= 100 ? fInt(v) : Math.abs(v) >= 10 || (M === 'year' && !federal && Number.isInteger(v)) ? d3.format(',.1~f')(v) : d3.format(',.2~f')(v));
+    const vf = (v) => (v == null || isNaN(v) ? 'n/a' : d3.format(',.2~f')(v));  /* at most two decimals; whole numbers stay whole */
     const tmp = s.append('text').attr('font-size', 12).text(tf(y.domain()[1]));
     const left = Math.ceil(tmp.node().getComputedTextLength()) + 10; tmp.remove();
     const x = d3.scaleBand(data.map((p) => p.year), [left, width - 4]).padding(0.28);
@@ -1244,7 +1244,7 @@
   <svg class="flag" viewBox="0 0 40 26" aria-hidden="true" focusable="false"><path fill="currentColor" d="M9.00,0.60L10.03,3.78L13.37,3.78L10.67,5.74L11.70,8.92L9.00,6.96L6.30,8.92L7.33,5.74L4.63,3.78L7.97,3.78ZM20.00,0.60L21.03,3.78L24.37,3.78L21.67,5.74L22.70,8.92L20.00,6.96L17.30,8.92L18.33,5.74L15.63,3.78L18.97,3.78ZM31.00,0.60L32.03,3.78L35.37,3.78L32.67,5.74L33.70,8.92L31.00,6.96L28.30,8.92L29.33,5.74L26.63,3.78L29.97,3.78ZM0 11.5H40V16.5H0ZM0 20H40V25H0Z"/></svg>
   <div>
     <p>DC Scorecard is an independent, nonpartisan project that grades how DC is doing using the District's own public data. It is not affiliated with the DC government.</p>
-    <p>Sources and methods are listed on each scorecard. Last updated October 24, 2026. Questions or corrections: <a href="mailto:contact@dcscorecard.org">contact@dcscorecard.org</a>.</p>
+    <p>Sources and methods are listed on each scorecard. Last updated November 16, 2026. Questions or corrections: <a href="mailto:contact@dcscorecard.org">contact@dcscorecard.org</a>.</p>
   </div>
 </div></footer>
 <script>

@@ -6,10 +6,12 @@ for d in ('assets', 'data/traffic-safety', 'traffic-safety', 'about', 'pipeline'
     os.makedirs(f'{S}/{d}', exist_ok=True)
 
 SITE = 'DC Scorecard'
-UPDATED = 'October 24, 2026'
 NEWSLETTER = ''  # e.g. 'https://www.yourdomain.com' once the Substack is live; the nav link appears when this is set
 city = next(csv.DictReader(open(O + '/dc-crashes-city.csv')))
 cw = next(csv.DictReader(open(O + '/dc-crashes-citywide.csv')))
+import datetime as _d0
+_t0 = _d0.date.fromisoformat(cw['data_through'])
+UPDATED = f'{_t0.strftime("%B")} {_t0.day}, {_t0.year}'  # the site's data date
 wards = {r['ward']: r for r in csv.DictReader(open(O + '/dc-crashes-by-ward.csv'))}
 outl = json.load(open(O + '/dc-district-outlines.json'))
 
@@ -267,7 +269,9 @@ deeplink = '''<script>
   });
 })();
 </script>'''
-body = f'<p class="page-note">Crash data through {cw["data_through"]}. Updated {UPDATED}.</p>\n' + page + deeplink
+import datetime as _dt
+_thr = _dt.date.fromisoformat(cw["data_through"])
+body = f'<p class="page-note">Crash data through {_thr.strftime("%B")} {_thr.day}, {_thr.year}.</p>\n' + page + deeplink
 open(S + '/traffic-safety/index.html', 'w').write(shell(f'Traffic safety scorecard | {SITE}', 'Safety grades for every DC ward, ANC and single-member district, built from police crash reports and DDOT traffic counts.', body, '/traffic-safety/', head, root='../'))
 
 # ---------- home ----------

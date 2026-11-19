@@ -1,4 +1,7 @@
 import json, math, csv, sys
+def rd2(v):
+    v = round(v, 2)  # crashes on district lines are split, so counts can be fractions
+    return int(v) if v == int(v) else v
 from shapely.geometry import shape
 from shapely.ops import unary_union, transform
 S = sys.argv[1]; GEO = sys.argv[2]
@@ -93,13 +96,13 @@ def row(rec, key, keyval, extra, ndist):
         r[m + '_per_100m_vmt'] = val(m, avg_c / (rec['vmt'] / 1e8), '_per_100m_vmt') if rec['vmt'] >= VMT_MIN else ''
     for m in MET:
         for y in YEARS:
-            r[f'{m}_{y}'] = rec[m + '_yr'][y]
+            r[f'{m}_{y}'] = rd2(rec[m + '_yr'][y])
     for m in MET:  # counted-street crashes by year (boundary roads split), for per-vehicle-mile rates in any window
         for y in YEARS:
             r[f'{m}_c_{y}'] = round(rec[m + '_c_yr'][y], 2)
     yt = rec['ytd']
-    r['crashes_2026_ytd'] = yt['c26']; r['crashes_2025_same_period'] = yt['c25']; r['crashes_ytd_change_pct'] = pct(yt['c26'], yt['c25'])
-    r['ksi_2026_ytd'] = yt['k26']; r['ksi_2025_same_period'] = yt['k25']
+    r['crashes_2026_ytd'] = rd2(yt['c26']); r['crashes_2025_same_period'] = rd2(yt['c25']); r['crashes_ytd_change_pct'] = pct(yt['c26'], yt['c25'])
+    r['ksi_2026_ytd'] = rd2(yt['k26']); r['ksi_2025_same_period'] = rd2(yt['k25'])
     return r
 BASE = (2023, 2024, 2025)
 def add_ranks(rows):
@@ -130,9 +133,9 @@ add_ranks(anc_rows); add_ranks(smd_rows); add_ranks(ward_rows)
 FULL = [str(y) for y in range(2019, 2026)]
 def add_deaths(r, rec, ndist):
     r['deaths'] = round(rec['fatal'], 1)
-    for y in YEARS: r[f'deaths_{y}'] = rec['fatal_yr'][y]
+    for y in YEARS: r[f'deaths_{y}'] = rd2(rec['fatal_yr'][y])
     for y in YEARS: r[f'deaths_c_{y}'] = round(rec['fatal_c_yr'][y], 2)
-    r['deaths_since_2019'] = sum(rec['fatal_yr'][y] for y in YEARS if int(y) >= 2019)  # tiles and averages stay on 2019 on
+    r['deaths_since_2019'] = rd2(sum(rec['fatal_yr'][y] for y in YEARS if int(y) >= 2019))  # tiles and averages stay on 2019 on
     avg = sum(rec['fatal_yr'][y] for y in FULL) / len(FULL); avg_c = sum(rec['fatal_c_yr'][y] for y in FULL) / len(FULL)
     r['deaths_avg'] = round(avg, 2)
     r['deaths_avg_per_district'] = round(avg / ndist, 3)
