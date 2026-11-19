@@ -18,7 +18,7 @@ FILES = {'anc': 'dc-crashes-by-anc.csv', 'smd': 'dc-crashes-by-smd.csv', 'ward':
          'citywide': 'dc-crashes-citywide.csv', 'peers': 'dc-peer-cities.csv', 'outlines': 'dc-district-outlines.json', 'roads': 'dc-major-roads.json'}
 for f in FILES.values(): shutil.copy(f'{O}/{f}', f'{S}/data/traffic-safety/{f}')
 shutil.copy(SP + '/npm/package/dist/d3.min.js', S + '/assets/d3-7.8.5.min.js')
-for f in ('process.py', 'trend.py', 'build.py', 'grade.py', 'build_site.py'):
+for f in ('process.py', 'trend.py', 'build.py', 'peers.py', 'grade.py', 'build_site.py'):
     shutil.copy(f'{SP}/scripts/{f}', f'{S}/pipeline/{f}')
 
 # ---------- the DC flag mark: three stars over two bars ----------

@@ -91,32 +91,20 @@ for lvl, fn, key in (('smd', 'dc-crashes-by-smd.csv', 'smd'), ('anc', 'dc-crashe
         w = csv.DictWriter(fh, head); w.writeheader()
         for r in rows: r.update(g[r[key]]); w.writerow({k: r.get(k, '') for k in head})
 
-# ---- city: traffic deaths per 100,000 residents vs similar-size cities (Schneider et al., Findings 2026, Table A1; FARS) ----
-PEERS = [  # city, 2008-2012 rate, 2018-2022 rate; cities of 500,000 to 1 million people in the 2020 Census
- ('Washington, DC',4.29,4.73),('Boston, MA',3.47,3.14),('San Francisco, CA',4.10,3.98),('Seattle, WA',4.14,4.29),('Las Vegas, NV',6.41,6.51),
- ('Baltimore, MD',5.77,7.24),('Portland, OR',4.83,8.15),('Denver, CO',6.36,8.78),('Columbus, OH',7.24,9.08),('Mesa, AZ',6.92,9.99),
- ('Austin, TX',7.74,10.27),('El Paso, TX',8.66,10.49),('Fresno, CA',6.79,10.96),('Charlotte, NC',7.66,11.21),('Sacramento, CA',7.50,11.24),
- ('Fort Worth, TX',8.45,12.19),('Milwaukee, WI',6.62,12.44),('Oklahoma City, OK',12.90,12.48),('Indianapolis, IN',9.12,13.92),('Nashville, TN',10.55,14.53),
- ('Louisville, KY',10.51,15.73),('Kansas City, MO',14.01,16.45),('Jacksonville, FL',12.80,16.68),('Albuquerque, NM',8.10,18.60),('Tucson, AZ',10.38,20.05),
- ('Detroit, MI',13.51,21.40),('Memphis, TN',13.05,29.60)]
+# ---- city: traffic deaths per 100,000 residents vs US cities of 500,000 to 1 million (3-year windows, from peers.py: NHTSA FARS + Census) ----
 import statistics
-peers = sorted(PEERS, key=lambda x: x[2])
-med_now = statistics.median(x[2] for x in PEERS); med_chg = statistics.median(x[2] / x[1] for x in PEERS)
-dc = next(x for x in PEERS if x[0].startswith('Washington'))
-c_stand = dc[2] / med_now; c_trend = (dc[2] / dc[1]) / med_chg
+PS = json.load(open(f'{OUT}/peer_summary.json'))
+c_stand, c_trend = PS['standing'], PS['trend']
 cl, cs = letter(c_stand, c_trend)
-rank = [x[0] for x in peers].index(dc[0]) + 1
-with open(f'{OUT}/dc-peer-cities.csv', 'w', newline='') as fh:
-    w = csv.writer(fh); w.writerow(['city', 'deaths_per_100k_2018_2022', 'deaths_per_100k_2008_2012', 'change_pct', 'rank', 'is_dc'])
-    for i, x in enumerate(peers): w.writerow([x[0], x[2], x[1], round((x[2] / x[1] - 1) * 100), i + 1, 1 if x is dc else 0])
 crow = rd('dc-crashes-city.csv')[0]
 tc = {k: sum(v[k] for v in tr.values()) for k in ('c1', 'c2', 'h1', 'h2')}
 crow.update({'grade': cl + cs, 'grade_letter': cl, 'grade_sign': cs, 'grade_sort': ORDER.index(cl) * 3 + {'+': 0, '': 1, '-': 2}[cs],
-             'peer_deaths_per_100k': dc[2], 'peer_deaths_per_100k_before': dc[1], 'peer_median_deaths_per_100k': round(med_now, 1), 'peer_rank': rank, 'peer_count': len(PEERS),
-             'peer_change_pct': round((dc[2] / dc[1] - 1) * 100), 'peer_median_change_pct': round((med_chg - 1) * 100), 'harm_vs_peers': round(c_stand, 2),
+             'peer_deaths_per_100k': PS['dc_rate'], 'peer_deaths_per_100k_before': PS['dc_prior'], 'peer_median_deaths_per_100k': PS['median'], 'peer_rank': PS['dc_rank'], 'peer_count': PS['count'],
+             'peer_change_pct': PS['dc_change_pct'], 'peer_median_change_pct': PS['median_change_pct'], 'harm_vs_peers': round(c_stand, 2),
+             'peer_period': PS['period'].replace('-', ' to '), 'peer_prior_period': PS['prior_period'].replace('-', ' to '),
              'crashes_prev_2y': tc['c1'], 'crashes_last_2y': tc['c2'], 'hurt_prev_2y': tc['h1'], 'hurt_last_2y': tc['h2'],
              'crashes_2y_change_pct': round((g_c - 1) * 100), 'hurt_2y_change_pct': round((g_h - 1) * 100)})
 head = list(dict.fromkeys(['city', 'grade'] + list(crow.keys())))
 with open(f'{OUT}/dc-crashes-city.csv', 'w', newline='') as fh:
     w = csv.DictWriter(fh, head); w.writeheader(); w.writerow(crow)
-print('CITY', cl + cs, 'rank', rank, 'of', len(PEERS), 'median', med_now, 'median change', round(med_chg - 1, 3), 'stand', round(c_stand, 2), 'trend', round(c_trend, 2))
+print('CITY', cl + cs, PS)

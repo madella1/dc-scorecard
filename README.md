@@ -29,7 +29,7 @@ For every area, the scorecard shows:
   - per square mile
   - per 100 million vehicle miles driven
 - **Trends since 2019**, plus 2026 so far compared with the same months of 2025.
-- **A city grade** comparing DC's traffic deaths per resident with the 26 other US cities of 500,000 to 1 million people.
+- **A city grade** comparing DC's traffic deaths per resident with the other US cities of 500,000 to 1 million people, using the latest three years of federal fatality data (currently 2022 to 2024).
 
 ### How the grades work
 
@@ -68,7 +68,9 @@ The full method, with its limits, is on the site's **About this scorecard** tab.
 | Ward 2022 boundaries | DC Open Data |
 | Traffic Volume 2025 (average annual daily traffic) | DDOT via DC Open Data |
 | Roadway Functional Classification | DDOT via DC Open Data |
-| Peer city traffic death rates, 2008 to 2012 and 2018 to 2022 | Schneider, Barbee, Nelson and Gu, "[Examining a Lost Decade for Traffic Safety in Large US Cities](https://findingspress.org/article/155976-examining-a-lost-decade-for-traffic-safety-in-large-us-cities)," *Findings* (2026), from NHTSA's Fatality Analysis Reporting System |
+| Traffic deaths in every US city, 2018 to 2024 | [Fatality Analysis Reporting System (FARS)](https://www.nhtsa.gov/research-data/fatality-analysis-reporting-system-fars), National Highway Traffic Safety Administration |
+| City populations, 2018 to 2025 | [City and Town Population Totals](https://www.census.gov/data/datasets/time-series/demo/popest/2020s-total-cities-and-towns.html), US Census Bureau |
+| Method check for the city grade | Schneider, Barbee, Nelson and Gu, "[Examining a Lost Decade for Traffic Safety in Large US Cities](https://findingspress.org/article/155976-examining-a-lost-decade-for-traffic-safety-in-large-us-cities)," *Findings* (2026). Rebuilt with the same method, the 2018 to 2022 city rates match the study's to within 0.1 deaths per 100,000 on average. |
 
 Crash data currently runs through October 19, 2026.
 
@@ -97,7 +99,7 @@ The CSV files in `data/traffic-safety/` hold every number on the site:
 | `dc-crashes-by-anc.csv` | One row per ANC |
 | `dc-crashes-by-ward.csv` | One row per ward |
 | `dc-crashes-city.csv` and `dc-crashes-citywide.csv` | DC as a whole |
-| `dc-peer-cities.csv` | Traffic death rates for the 27 peer cities |
+| `dc-peer-cities.csv` | Traffic deaths per 100,000 residents for DC and its peer cities, latest three years and the three before |
 
 Each area file includes grades, measures, ranks and yearly counts. If you use them, please credit DC Open Data and DDOT as the sources and DC Scorecard as the compiler.
 
@@ -120,7 +122,8 @@ The scripts in `pipeline/` run in this order. They need Python 3 with the `shape
 | `process.py` | Places each crash in its district and computes traffic volume per district |
 | `build.py` | Builds the ward, ANC, district and city tables, and the map outlines |
 | `trend.py` | Counts crashes in the last two years and the two years before, for the plus or minus |
-| `grade.py` | Computes the letter grades and the city's peer comparison |
+| `peers.py` | Builds peer-city death rates from FARS and Census population files |
+| `grade.py` | Computes the letter grades, including the city grade |
 | `build_site.py` | Assembles the website folder |
 
 The scripts were written for this project's own runs, so file paths may need adjusting. Each script's first lines explain its inputs.
