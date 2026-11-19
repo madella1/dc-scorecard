@@ -94,6 +94,9 @@ def row(rec, key, keyval, extra, ndist):
     for m in MET:
         for y in YEARS:
             r[f'{m}_{y}'] = rec[m + '_yr'][y]
+    for m in MET:  # counted-street crashes by year (boundary roads split), for per-vehicle-mile rates in any window
+        for y in YEARS:
+            r[f'{m}_c_{y}'] = round(rec[m + '_c_yr'][y], 2)
     yt = rec['ytd']
     r['crashes_2026_ytd'] = yt['c26']; r['crashes_2025_same_period'] = yt['c25']; r['crashes_ytd_change_pct'] = pct(yt['c26'], yt['c25'])
     r['ksi_2026_ytd'] = yt['k26']; r['ksi_2025_same_period'] = yt['k25']
@@ -128,7 +131,8 @@ FULL = [str(y) for y in range(2019, 2026)]
 def add_deaths(r, rec, ndist):
     r['deaths'] = round(rec['fatal'], 1)
     for y in YEARS: r[f'deaths_{y}'] = rec['fatal_yr'][y]
-    r['deaths_since_2019'] = sum(rec['fatal_yr'][y] for y in YEARS)
+    for y in YEARS: r[f'deaths_c_{y}'] = round(rec['fatal_c_yr'][y], 2)
+    r['deaths_since_2019'] = sum(rec['fatal_yr'][y] for y in YEARS if int(y) >= 2019)  # tiles and averages stay on 2019 on
     avg = sum(rec['fatal_yr'][y] for y in FULL) / len(FULL); avg_c = sum(rec['fatal_c_yr'][y] for y in FULL) / len(FULL)
     r['deaths_avg'] = round(avg, 2)
     r['deaths_avg_per_district'] = round(avg / ndist, 3)

@@ -43,7 +43,7 @@ def owners(pt):
 def sqmi(geom):
     return geom.area * 69.172 * math.cos(LAT0) * 68.99
 
-YEARS = list(range(2019, 2027))
+YEARS = list(range(2016, 2027))  # 2016 on: earlier years code serious injuries differently and are incomplete
 def blank():
     return {k: {y: 0 for y in YEARS} for k in ('crashes','ksi','fatal','ped','bike','speed','crashes_c','ksi_c','ped_c','bike_c','fatal_c','crashes_on')}
 agg = {s['id']: blank() for s in smds}

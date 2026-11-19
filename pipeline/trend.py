@@ -7,9 +7,17 @@ from shapely.strtree import STRtree
 CSV, GEO, OUT = sys.argv[1:4]
 smds = [dict(id=f['properties']['SMD_ID'], geom=shape(f['geometry']).buffer(0)) for f in json.load(open(GEO))['features']]
 tree = STRtree([s['geom'] for s in smds])
-END = datetime.date(2026, 10, 19)
-P2 = (datetime.date(2024, 10, 20), END)
-P1 = (datetime.date(2022, 10, 20), datetime.date(2024, 10, 19))
+def day(row):
+    try: return datetime.date.fromisoformat(row['REPORTDATE'][:10].replace('/', '-'))
+    except: return None
+# windows end at the newest crash date in the file (dates in the future are typos and are ignored)
+END = max(d for d in (day(r) for r in csv.DictReader(open(CSV, encoding='utf-8-sig'))) if d and d <= datetime.date.today())
+def years_back(d, n):
+    try: return d.replace(year=d.year - n)
+    except ValueError: return d.replace(year=d.year - n, day=28)
+P2 = (years_back(END, 2) + datetime.timedelta(days=1), END)
+P1 = (years_back(END, 4) + datetime.timedelta(days=1), years_back(END, 2))
+print('recent window', P2, 'earlier window', P1)
 
 def I(row, k):
     try: return int(float(row.get(k) or 0))

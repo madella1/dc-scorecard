@@ -102,5 +102,12 @@ with open(f'{SP}/out/dc-peer-cities.csv', 'w', newline='') as fh:
     for r in rows:
         w.writerow([r['city'], round(r['rate'], 2), round(r['prior'], 2), round((r['rate'] / r['prior'] - 1) * 100), r['deaths'], r['pop'], r['rank'], r['is_dc'], summary['period'], summary['prior_period']])
 json.dump(summary, open(f'{SP}/out/peer_summary.json', 'w'), indent=1)
+# yearly series for the city chart: DC and the typical (median) other peer city
+with open(f'{SP}/out/dc-peer-years.csv', 'w', newline='') as fh:
+    w = csv.writer(fh); w.writerow(['year', 'dc_deaths', 'dc_per_100k', 'peer_median_per_100k'])
+    pk = [k for k in peers if k != DC]
+    for y in years:
+        w.writerow([y, deaths[city[DC]].get(y, 0), round(deaths[city[DC]].get(y, 0) / pop[DC][y] * 1e5, 2),
+                    round(statistics.median(deaths[city[k]].get(y, 0) / pop[k][y] * 1e5 for k in pk), 2)])
 print(json.dumps(summary, indent=1))
 for r in rows: print(f"{r['rank']:2d} {r['city']:32s} {r['rate']:6.2f}  prior {r['prior']:6.2f}  pop {r['pop']:,}")

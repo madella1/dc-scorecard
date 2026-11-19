@@ -13,7 +13,7 @@
 <link rel="stylesheet" href="../assets/site.css">
 <script src="../assets/d3-7.8.5.min.js"></script>
 <script src="../data/traffic-safety/data.js"></script>
-<script src="../assets/data-loader.js" data-base="../data/traffic-safety/" data-files='{"anc": "dc-crashes-by-anc.csv", "smd": "dc-crashes-by-smd.csv", "ward": "dc-crashes-by-ward.csv", "city": "dc-crashes-city.csv", "citywide": "dc-crashes-citywide.csv", "peers": "dc-peer-cities.csv", "outlines": "dc-district-outlines.json", "roads": "dc-major-roads.json"}'></script>
+<script src="../assets/data-loader.js" data-base="../data/traffic-safety/" data-files='{"anc": "dc-crashes-by-anc.csv", "smd": "dc-crashes-by-smd.csv", "ward": "dc-crashes-by-ward.csv", "city": "dc-crashes-city.csv", "citywide": "dc-crashes-citywide.csv", "peers": "dc-peer-cities.csv", "peeryears": "dc-peer-years.csv", "outlines": "dc-district-outlines.json", "roads": "dc-major-roads.json"}'></script>
 </head>
 <body>
 <header class="site-head"><div class="wrap">
@@ -22,7 +22,7 @@
 </div></header>
 <div class="bars" aria-hidden="true"></div>
 <main class="wrap">
-<p class="page-note">Crash data through 2026-10-19. Updated October 24, 2026.</p>
+<p class="page-note">Crash data through 2026-11-16. Updated October 24, 2026.</p>
 <style>
 /* Layout: header + controls, then map card beside the scorecard panel (stacks when narrow), then a full-width ranking table and method notes. */
 .cs { font-family: var(--font-anthropic-sans); display: grid; gap: var(--cds-gap-lg); color: var(--color-fg); }
@@ -77,6 +77,10 @@
 .cs-tiles { display: grid; gap: var(--cds-gap-sm); grid-template-columns: repeat(auto-fit, minmax(min(100%, 11rem), 1fr)); }
 .cs-tile { font: inherit; text-align: left; color: inherit; background: var(--color-bg); border: 1px solid var(--color-border-line); border-radius: var(--cds-radius); padding: var(--cds-pad-sm) var(--cds-pad-md); display: grid; gap: 4px; align-content: start; cursor: pointer; min-width: 0; }
 .cs-tile-static { cursor: default; }
+.cs-trend-key { display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); margin-top: 4px; }
+.cs-trend-key span { display: inline-flex; align-items: center; gap: 6px; }
+.cs-trend-key i { display: inline-block; width: 14px; height: 10px; border-radius: 2px; }
+.cs-trend-key i.cs-k-line { height: 0; border-top: 2px solid var(--color-fg); border-radius: 0; width: 18px; }
 .cs-tile[aria-pressed="true"] { border-color: var(--color-fg); box-shadow: inset 0 0 0 1px var(--color-fg); }
 .cs-tile-label { font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); }
 .cs-tile-big { font-family: var(--font-anthropic-serif); font-weight: 400; font-size: var(--cds-font-size-title); line-height: 1.1; font-variant-numeric: tabular-nums; }
@@ -281,7 +285,7 @@
           <span id="g-trend"></span>
         </div>
         <ul class="cs-grade-parts" id="g-parts"></ul>
-        <div class="cs-peers" id="g-peers" data-source="peers" hidden></div>
+        <div class="cs-peers" id="g-peers" data-source="peers" hidden></div><span data-source="peeryears" hidden></span>
       </div>
 
       <p class="cs-note" id="p-tiles-note">Yearly averages, 2023 to 2025. Rank 1 means the most among <span id="p-peer">ANCs</span>.</p>
@@ -290,7 +294,7 @@
           <span class="cs-tile-label">Crashes</span>
           <span class="cs-tile-big"><span data-cs-row data-cs-measure data-cs-metric="crashes" data-field="crashes">—</span><span class="cs-tile-unit"></span></span>
           <span class="cs-tile-line cs-tile-rank">Rank <span data-cs-row data-cs-measure data-cs-metric="crashes" data-cs-rank data-cs-only="ward anc smd" data-field="crashes_rank">—</span> of <span data-cs-n>—</span></span>
-          <span class="cs-tile-line cs-tile-total"><span data-cs-row data-field="crashes">—</span> a year in total</span>
+          <span class="cs-tile-line cs-tile-total"><span data-cs-row data-cs-tot="crashes" data-field="crashes">—</span> a year in total</span>
           <span class="cs-tile-line cs-tile-none" hidden>Too little counted traffic for a rate</span>
           <span class="cs-pill" hidden>Highest fifth</span>
         </button>
@@ -298,7 +302,7 @@
           <span class="cs-tile-label">Serious injuries and deaths</span>
           <span class="cs-tile-big"><span data-cs-row data-cs-measure data-cs-metric="ksi" data-field="ksi">—</span><span class="cs-tile-unit"></span></span>
           <span class="cs-tile-line cs-tile-rank">Rank <span data-cs-row data-cs-measure data-cs-metric="ksi" data-cs-rank data-cs-only="ward anc smd" data-field="ksi_rank">—</span> of <span data-cs-n>—</span></span>
-          <span class="cs-tile-line cs-tile-total"><span data-cs-row data-field="ksi">—</span> a year in total</span>
+          <span class="cs-tile-line cs-tile-total"><span data-cs-row data-cs-tot="ksi" data-field="ksi">—</span> a year in total</span>
           <span class="cs-tile-line cs-tile-none" hidden>Too little counted traffic for a rate</span>
           <span class="cs-pill" hidden>Highest fifth</span>
         </button>
@@ -306,7 +310,7 @@
           <span class="cs-tile-label">Pedestrians injured or killed</span>
           <span class="cs-tile-big"><span data-cs-row data-cs-measure data-cs-metric="ped" data-field="ped">—</span><span class="cs-tile-unit"></span></span>
           <span class="cs-tile-line cs-tile-rank">Rank <span data-cs-row data-cs-measure data-cs-metric="ped" data-cs-rank data-cs-only="ward anc smd" data-field="ped_rank">—</span> of <span data-cs-n>—</span></span>
-          <span class="cs-tile-line cs-tile-total"><span data-cs-row data-field="ped">—</span> a year in total</span>
+          <span class="cs-tile-line cs-tile-total"><span data-cs-row data-cs-tot="ped" data-field="ped">—</span> a year in total</span>
           <span class="cs-tile-line cs-tile-none" hidden>Too little counted traffic for a rate</span>
           <span class="cs-pill" hidden>Highest fifth</span>
         </button>
@@ -314,7 +318,7 @@
           <span class="cs-tile-label">Cyclists injured or killed</span>
           <span class="cs-tile-big"><span data-cs-row data-cs-measure data-cs-metric="bike" data-field="bike">—</span><span class="cs-tile-unit"></span></span>
           <span class="cs-tile-line cs-tile-rank">Rank <span data-cs-row data-cs-measure data-cs-metric="bike" data-cs-rank data-cs-only="ward anc smd" data-field="bike_rank">—</span> of <span data-cs-n>—</span></span>
-          <span class="cs-tile-line cs-tile-total"><span data-cs-row data-field="bike">—</span> a year in total</span>
+          <span class="cs-tile-line cs-tile-total"><span data-cs-row data-cs-tot="bike" data-field="bike">—</span> a year in total</span>
           <span class="cs-tile-line cs-tile-none" hidden>Too little counted traffic for a rate</span>
           <span class="cs-pill" hidden>Highest fifth</span>
         </button>
@@ -340,7 +344,8 @@
 
       <h2 id="trend-title">Crashes by year</h2>
       <div class="cs-trend" id="cs-trend" data-source="anc"></div>
-      <p class="cs-note">The lighter bar is 2026 so far. Hover a bar for its count.</p>
+      <div class="cs-trend-key" id="trend-key"></div>
+      <p class="cs-note" id="trend-note">The lighter bar is 2026 so far. Hover a bar for its count.</p>
     </section>
   </div>
 
@@ -383,7 +388,7 @@
       <div>
         <section class="ab-section" id="ab-what">
           <h2>What This Scorecard Shows</h2>
-          <p>Traffic crashes across DC as a whole and in each of its 8 wards, 46 Advisory Neighborhood Commissions (ANCs) and 345 single-member districts, built from DC's own open data. Each area gets a safety grade, four measures with a rank against its peers (wards against wards, and so on), a trend since 2019 and its 2026 record so far. Wards and the city also show traffic deaths.</p>
+          <p>Traffic crashes across DC as a whole and in each of its 8 wards, 46 Advisory Neighborhood Commissions (ANCs) and 345 single-member districts, built from DC's own open data. Each area gets a safety grade, four measures with a rank against its peers (wards against wards, and so on), a trend since 2016 and its 2026 record so far. Wards and the city also show traffic deaths.</p>
           <p>Numbers are yearly averages for <b data-source="citywide" data-row="0" data-field="average_years">—</b>, the last three full years, so one unusual year counts less. Crash data runs through <b data-source="citywide" data-row="0" data-field="data_through">—</b>.</p>
         </section>
 
@@ -394,7 +399,7 @@
             <li><b>Color the map by</b> shades the map by safety grade or by one measure. Darker means worse.</li>
             <li><b>Compare by</b> sets how areas are compared: in total, per district, per square mile or per vehicle mile. It changes the tiles, ranks and table. Grades always use their own fixed recipe.</li>
             <li><b>Click an area</b> on the map, a row in the table, or type a name in <b>Go to</b> (Ward 4, 4D or 4D02) to open its scorecard. The buttons under the name step down a level, from a ward to its ANCs and from an ANC to its districts.</li>
-            <li><b>Click a tile</b> to color the map by that measure.</li>
+            <li><b>Click a tile</b> to color the map by that measure and show its yearly chart. The bars follow Compare by. The line shows the average ward, ANC or district (or DC as a whole for rates). For traffic deaths in the city view, the chart switches to deaths per 100,000 residents against the typical peer city.</li>
             <li><b>Show major roads</b> draws Interstates, other freeways and principal arterials on the map. Hover a road for its name.</li>
           </ul>
         </section>
@@ -450,15 +455,16 @@
           </table></div>
           <p>Cutoffs are fixed rather than curved, so every area can earn an A as DC gets safer.</p>
           <h3>The sign: which way it is heading</h3>
-          <p>Crashes and people hurt in the last two years (October 2024 to October 2026) are compared with the two years before. People hurt means everyone seriously injured or killed, plus pedestrians and cyclists with minor injuries.</p>
+          <p>Crashes and people hurt in <span id="ab-trend-win">the last two years are compared with the two years before</span>. People hurt means everyone seriously injured or killed, plus pedestrians and cyclists with minor injuries. These windows move forward each time the crash data is updated, so a sign can change between updates while the letter stays on full calendar years.</p>
           <div class="ab-table"><table>
             <thead><tr><th>Sign</th><th>Meaning</th></tr></thead>
             <tbody>
-              <tr><td>Plus</td><td>Improving at least 12% faster than DC as a whole</td></tr>
+              <tr><td>Plus</td><td>Improving at least 8% faster than DC as a whole</td></tr>
               <tr><td>No sign</td><td>Changing about as fast as DC</td></tr>
-              <tr><td>Minus</td><td>Worsening at least 12% compared with DC</td></tr>
+              <tr><td>Minus</td><td>Worsening at least 8% compared with DC</td></tr>
             </tbody>
           </table></div>
+          <p>The 8% line is the same for every area and stays fixed. When it was set, roughly a third of districts and ANCs were improving, a third worsening and a third holding steady. Trends for areas with few crashes are pulled toward DC's own change, so one or two extra crashes can't earn a small district a sign. Wards are so large that they rarely move 8% away from DC.</p>
           <p>Each area is compared with DC's own change because citywide shifts, like the pandemic or a change in police reporting, happen to every area at once. The city grade is what tracks those.</p>
           <h3>Fair to small areas</h3>
           <p>Districts with only a few cases are pulled partway toward the DC average, by about three cases' worth, so one bad crash cannot sink a grade. Wards and ANCs have enough cases that this barely matters.</p>
@@ -469,7 +475,7 @@
           <p>DC's own grade compares its traffic deaths per resident with the other US cities of 500,000 to 1 million people (<b data-source="city" data-row="0" data-field="peer_count">—</b> cities including DC, using the Census Bureau's latest population estimates). Deaths come from NHTSA's Fatality Analysis Reporting System (FARS), the federal record of every fatal crash. Crash counts are not used because police departments report crashes differently, while deaths are recorded the same way everywhere.</p>
           <ul>
             <li><b>The letter</b> compares DC's yearly deaths per 100,000 residents over the latest three years (<b data-source="city" data-row="0" data-field="peer_period">—</b>) with the typical other city in the group, using the same cutoffs as the neighborhood grades.</li>
-            <li><b>The sign</b> compares DC's change from the three years before (<b data-source="city" data-row="0" data-field="peer_prior_period">—</b>) with the typical city's change, using the same 12% thresholds.</li>
+            <li><b>The sign</b> compares DC's change from the three years before (<b data-source="city" data-row="0" data-field="peer_prior_period">—</b>) with the typical city's change, using the same 8% threshold.</li>
             <li><b>Checked against published research.</b> Deaths are counted by FARS city, the method used in a 2026 peer-reviewed study of large US cities. Rebuilt this way, the 2018 to 2022 rates match the study's to within 0.1 deaths per 100,000 on average.</li>
             <li><b>Updated yearly.</b> FARS lags by about 15 months. The latest file covers 2024, so DC's unusually low 2025 will enter the grade when the 2025 file is released, expected in spring 2027.</li>
           </ul>
@@ -492,7 +498,7 @@
           <ul>
             <li><b>Boundaries.</b> Each crash is placed by its reported location inside the 2023 ANC and district boundaries, the ones used in this year's elections.</li>
             <li><b>Wards</b> are built from their single-member districts using DC's 2022 ward boundaries. Every district sits at least 97% inside one ward. The ward labels in the crash records are inconsistent in places, so they are not used.</li>
-            <li><b>Edges.</b> Crashes recorded just outside any district, usually on a boundary street, go to the nearest district within about 65 yards. Only 3 crashes since 2019 fell outside DC entirely.</li>
+            <li><b>Edges.</b> Crashes recorded just outside any district, usually on a boundary street, go to the nearest district within about 65 yards. Only 5 crashes since 2016 fell outside DC entirely.</li>
             <li><b>Bad records.</b> A few hundred records with impossible dates (such as 1825 or 1900) and about 1,400 with no date were left out. 15 road segments in DDOT's traffic file share one location near the Capitol, a mapping error, and were dropped (about 0.2% of traffic).</li>
           </ul>
         </section>
@@ -501,6 +507,7 @@
           <h2>Limits to Keep in Mind</h2>
           <ul>
             <li><b>Police-reported crashes only.</b> Minor crashes are undercounted everywhere. Police records can also miss someone who dies days after a crash, so death counts may run a little below DC's official totals.</li>
+            <li><b>Yearly charts start in 2016.</b> DC's crash file goes back to 2008, but earlier years are incomplete and code serious injuries differently, so they can't be compared. Police death counts for 2016 and 2017 run several above DC's official totals, so death averages and ranks use 2019 to 2025. Every year is counted inside today's boundaries.</li>
             <li><b>Commuter traffic.</b> Busy roads raise an area's crash counts no matter what residents do. The per vehicle mile view helps separate road risk from traffic volume.</li>
             <li><b>Pedestrian and cyclist rates per vehicle mile</b> measure harm against car traffic, not against how many people walk or bike there.</li>
             <li><b>Small numbers.</b> Small districts have few crashes, so one bad year can move their rank a lot. Check the trend chart before drawing conclusions.</li>
@@ -534,7 +541,7 @@
 <script>
 (function () {
   const root = document.getElementById('crash-scorecard');
-  const S = { level: 'ward', metric: 'grade', measure: 'year', sel: { city: 'DC', ward: '1', anc: '1A', smd: '1A01' }, sortKey: null, sortDir: -1, filter: '', roads: new Set() };
+  const S = { level: 'ward', metric: 'grade', measure: 'year', win: '2023', sel: { city: 'DC', ward: '1', anc: '1A', smd: '1A01' }, sortKey: null, sortDir: -1, filter: '', roads: new Set() };
   const LABEL = { deaths: 'Traffic deaths', grade: 'Safety grade', crashes: 'All crashes', ksi: 'Serious injuries and deaths', ped: 'Pedestrians injured or killed', bike: 'Cyclists injured or killed' };
   const SHORT = { crashes: 'Crashes', ksi: 'Serious inj. and deaths', ped: 'Pedestrians', bike: 'Cyclists' };
   const UNIT = { deaths: 'people killed', crashes: 'crashes', ksi: 'people', ped: 'pedestrians', bike: 'cyclists' };
@@ -547,13 +554,44 @@
   };
   const only = (el) => !el.dataset.csOnly || el.dataset.csOnly.split(' ').includes(S.level);
   const f2 = d3.format(',.2f');
-  const fmtFor = (field) => /^deaths_avg/.test(field) && !/_rank$/.test(field) ? f2 : (/_rank$|_count|_ytd|same_period|_\d{4}$|_pct$|^traffic_road_miles$|^smd_with_traffic_rate$|^freeway_crashes$|^deaths_since_2019$/.test(field) || (/^crashes/.test(field) && !/_per_district$/.test(field)) ? fInt : f1);
+  const fmtFor = (field0) => { const field = String(field0).replace(/^w\d{4}_/, ''); return fmtFor0(field); };
+  const fmtFor0 = (field) => /^deaths_avg/.test(field) && !/_rank$/.test(field) ? f2 : (/_rank$|_count|_ytd|same_period|_\d{4}$|_pct$|^traffic_road_miles$|^smd_with_traffic_rate$|^freeway_crashes$|^deaths_since_2019$/.test(field) || (/^crashes/.test(field) && !/_per_district$/.test(field)) ? fInt : f1);
   const num = (v) => (v === '' || v == null ? null : +v);
   const enc = (v) => String(v).replace(/%/g, '%25').replace(/&/g, '%26').replace(/=/g, '%3D');
-  const rowsOf = (id) => { const d = dash.data(id); return d.status === 'ok' ? d.data : null; };
+  const rowsOf = (id) => { const d = dash.data(id); if (d.status !== 'ok') return null; if (['smd', 'anc', 'ward', 'city'].includes(id)) addWindows(d.data, id); return d.data; };
+  /* Three-year windows other than the default are computed here from the yearly columns, with ranks. */
+  const WINS = ['2022', '2021', '2020', '2019'];
+  function addWindows(rows, level) {
+    if (rows.__win) return; rows.__win = true;
+    const sufs = ['', '_per_district', '_per_sqmi', '_per_100m_vmt'];
+    rows.forEach((r) => {
+      const nd = level === 'smd' ? 1 : +r.smd_count, area = +r.area_sqmi, vm = +r.vehicle_miles_millions;
+      WINS.forEach((w) => {
+        const ys = [+w, +w + 1, +w + 2];
+        ['crashes', 'ksi', 'ped', 'bike'].forEach((m) => {
+          const tot = d3.mean(ys, (y) => +r[m + '_' + y]);
+          const totc = d3.mean(ys, (y) => +r[m + '_c_' + y]);
+          const rd = (v, whole) => (whole ? Math.round(v) : Math.round(v * 100) / 100), cr = m === 'crashes';
+          r['w' + w + '_' + m] = rd(tot, cr);
+          r['w' + w + '_' + m + '_per_district'] = rd(tot / nd, false);
+          r['w' + w + '_' + m + '_per_sqmi'] = area ? rd(tot / area, cr) : '';
+          r['w' + w + '_' + m + '_per_100m_vmt'] = r[m + '_per_100m_vmt'] === '' || !vm ? '' : rd(totc / (vm / 100), cr);
+        });
+      });
+    });
+    if (level === 'city') return;
+    WINS.forEach((w) => ['crashes', 'ksi', 'ped', 'bike'].forEach((m) => sufs.forEach((sf) => {
+      const f = 'w' + w + '_' + m + sf, have = rows.filter((r) => r[f] !== '' && r[f] != null);
+      have.forEach((r) => { r[f + '_rank'] = 1 + have.filter((o) => o[f] > r[f]).length; });
+      rows.filter((r) => r[f] === '' || r[f] == null).forEach((r) => { r[f + '_rank'] = ''; });
+    })));
+  }
   const SUF = { year: '', district: '_per_district', sqmi: '_per_sqmi', vmt: '_per_100m_vmt' };
   const msr = () => (S.level === 'smd' && S.measure === 'district' ? 'year' : S.measure);
-  const fieldOf = (m) => (m === 'deaths' ? 'deaths_avg' : m) + SUF[msr()];
+  const WIN0 = '2023';
+  const winLabel = () => S.win + ' to ' + (+S.win + 2);
+  const winKey = (base) => (S.win === WIN0 ? base : 'w' + S.win + '_' + base);
+  const fieldOf = (m) => (m === 'deaths' ? 'deaths_avg' + SUF[msr()] : winKey(m + SUF[msr()]));
   const DEATHS = () => S.metric === 'deaths';
   const UNITTXT = { year: ' a year', district: ' a year per district', sqmi: ' a year per sq mi', vmt: ' per 100M vehicle miles' };
   const MNAME = { year: 'total per year', district: 'per district (about 2,000 residents)', sqmi: 'per square mile', vmt: 'per 100 million vehicle miles' };
@@ -765,6 +803,16 @@
     if (!gLabels.node().childNodes.length) placeLabels();
   }
 
+  /* the plus or minus compares the 24 months ending on the newest crash date with the 24 months before */
+  function trendWin() {
+    const c = rowsOf('citywide'); if (!c || !c[0] || !c[0].data_through) return null;
+    const e = new Date(c[0].data_through + 'T12:00:00');
+    const back = (d, n) => { const x = new Date(d); x.setFullYear(x.getFullYear() - n); return x; };
+    const next = (d) => { const x = new Date(d); x.setDate(x.getDate() + 1); return x; };
+    const f = (d) => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    return { recent: f(next(back(e, 2))) + ' to ' + f(e), prior: f(next(back(e, 4))) + ' to ' + f(back(e, 2)) };
+  }
+
   /* ---------- scorecard panel ---------- */
   function setMarks(id) {
     root.querySelectorAll('[data-cs-row]').forEach((el) => {
@@ -778,11 +826,14 @@
     root.querySelectorAll('[data-cs-measure]').forEach((el) => {
       el.dataset.field = fieldOf(el.dataset.csMetric) + ('csRank' in el.dataset ? '_rank' : '');
     });
+    root.querySelectorAll('[data-cs-tot]').forEach((el) => { el.dataset.field = winKey(el.dataset.csTot); });
   }
 
   function renderPanel() {
     const id = S.sel[S.level];
     setMarks(id);
+    const tw0 = trendWin(), abw = document.getElementById('ab-trend-win');
+    if (tw0 && abw) abw.textContent = 'the two years from ' + tw0.recent + ' are compared with the two years before (' + tw0.prior + ')';
     document.getElementById('p-kind').textContent = LV[S.level].kind;
     root.querySelectorAll('[data-cs-show]').forEach((el) => { el.hidden = !el.dataset.csShow.split(' ').includes(S.level); });
     const pid = document.getElementById('p-id'); pid.dataset.field = S.level;
@@ -790,8 +841,8 @@
     document.getElementById('p-sub-smd').hidden = S.level !== 'smd';
     document.getElementById('p-up').hidden = S.level !== 'smd';
     document.getElementById('p-tiles-note').textContent = S.level === 'city'
-      ? 'Yearly averages for all of DC, 2023 to 2025, shown ' + MNAME[msr()] + '. There are no ranks at the city level.'
-      : 'Yearly averages, 2023 to 2025. Rank 1 means the most among the ' + LV[S.level].plural + (msr() === 'year' ? ', compared as yearly totals.' : ', compared ' + MNAME[msr()] + '.');
+      ? 'Yearly averages for all of DC, ' + winLabel() + ', shown ' + MNAME[msr()] + '. There are no ranks at the city level.'
+      : 'Yearly averages, ' + winLabel() + '. Rank 1 means the most among the ' + LV[S.level].plural + (msr() === 'year' ? ', compared as yearly totals.' : ', compared ' + MNAME[msr()] + '.');
     const rows = rowsOf(S.level), city = rowsOf('citywide');
     const r = rows && rows.find((x) => x[S.level] === id);
     root.querySelectorAll('[data-cs-row]').forEach((el) => {
@@ -874,7 +925,8 @@
     desc.replaceChildren(T('Harm here is '), b(vsTxt(r.harm_vs_dc, 'the DC average')), T(', which is ' + LETTER_TXT[r.grade_letter] + '.'));
     const tv = num(r.trend_vs_dc_pct);
     const lead = r.grade_sign === '+' ? 'Plus: improving faster than DC. ' : r.grade_sign === '-' ? 'Minus: getting worse compared with DC. ' : 'No sign: changing about as fast as DC. ';
-    trd.replaceChildren(T(lead + 'Comparing the last two years with the two before, crashes went from '), b(fInt(num(r.crashes_prev_2y))), T(' to '), b(fInt(num(r.crashes_last_2y))), T(' ('), b(sgn(ch(r.crashes_prev_2y, r.crashes_last_2y))), T(') and people hurt from '), b(fInt(num(r.hurt_prev_2y))), T(' to '), b(fInt(num(r.hurt_last_2y))), T(' ('), b(sgn(ch(r.hurt_prev_2y, r.hurt_last_2y))), T('). DC overall: crashes '), b(sgn(cityChg('crashes'))), T(', people hurt '), b(sgn(cityChg('hurt'))), T('.'));
+    const tw = trendWin();
+    trd.replaceChildren(T(lead + (tw ? 'Comparing ' + tw.recent + ' with the two years before (' + tw.prior + '), crashes went from ' : 'Comparing the last two years with the two before, crashes went from ')), b(fInt(num(r.crashes_prev_2y))), T(' to '), b(fInt(num(r.crashes_last_2y))), T(' ('), b(sgn(ch(r.crashes_prev_2y, r.crashes_last_2y))), T(') and people hurt from '), b(fInt(num(r.hurt_prev_2y))), T(' to '), b(fInt(num(r.hurt_last_2y))), T(' ('), b(sgn(ch(r.hurt_prev_2y, r.hurt_last_2y))), T('). DC overall: crashes '), b(sgn(cityChg('crashes'))), T(', people hurt '), b(sgn(cityChg('hurt'))), T('.'));
     const items = [['Serious injuries and deaths, per district', vsTxt(r.ksi_vs_dc, 'DC')], ['Pedestrians and cyclists hurt, per district', vsTxt(r.vru_vs_dc, 'DC')],
       ['Crashes per vehicle mile', r.vmt_vs_typical === '' ? 'not rated (too little counted traffic)' : vsTxt(r.vmt_vs_typical, 'typical ' + LV[S.level].plural.replace(/s$/, ''))]];
     parts.replaceChildren(...items.map(([k, v]) => { const x = document.createElement('li'); const a = document.createElement('span'); a.textContent = k; const c = document.createElement('span'); c.textContent = v; x.append(a, c); return x; }));
@@ -902,45 +954,92 @@
   }
 
   function renderTrend(r) {
-    const box = document.getElementById('cs-trend');
+    const box = document.getElementById('cs-trend'), key = document.getElementById('trend-key'), note = document.getElementById('trend-note');
     box.dataset.source = S.level;
-    document.getElementById('trend-title').textContent = LABEL[SER()] + ' by year';
-    const d = dash.data(S.level);
+    const m = SER(), M = msr(), d = dash.data(S.level);
     if (d.status === 'error') { box.replaceChildren(Object.assign(document.createElement('div'), { className: 'cs-fail', textContent: 'Failed to load' })); return; }
     if (!r) { box.replaceChildren(); box.classList.add('dash-skeleton'); return; }
     box.classList.remove('dash-skeleton');
-    const cols = (d.columns || Object.keys(r)).filter((c) => new RegExp('^' + SER() + '_\\d{4}$').test(c));
-    const data = cols.map((c) => ({ year: c.slice(-4), v: num(r[c]) }));
-    const last = data[data.length - 1].year;
+    const lvName = { ward: 'ward', anc: 'ANC', smd: 'district' }[S.level];
+    const years = (d.columns || Object.keys(r)).filter((c) => new RegExp('^' + m + '_\\d{4}$').test(c)).map((c) => c.slice(-4));
+    /* bar value for a row in a year, following Compare by */
+    const nAreas = (rowsOf(S.level) || []).length || 1;
+    const val = (row, y, nd) => {
+      const c = num(row[m + '_' + y]);
+      if (M === 'district') return c / nd;
+      if (M === 'sqmi') return +row.area_sqmi ? c / +row.area_sqmi : null;
+      if (M === 'vmt') { const cc = row[m + '_c_' + y]; return cc === '' || cc == null || !+row.vehicle_miles_millions || row[m + '_per_100m_vmt'] === '' ? null : num(cc) / (+row.vehicle_miles_millions / 100); }
+      return c;
+    };
+    let data, lineName = null, barName = S.level === 'city' ? 'All of DC' : LV[S.level].tip + S.sel[S.level], title = LABEL[m] + ' by year', unit = UNIT[m], federal = false;
+    const peerYears = rowsOf('peeryears');
+    if (S.level === 'city' && m === 'deaths' && peerYears) {
+      federal = true;
+      data = peerYears.map((p) => ({ year: String(p.year), v: +p.dc_per_100k, l: +p.peer_median_per_100k }));
+      title = 'Traffic deaths per 100,000 residents by year'; unit = 'per 100,000 residents';
+      lineName = 'Typical peer city'; barName = 'DC';
+    } else {
+      const nd = S.level === 'smd' ? 1 : +r.smd_count || 1;
+      const city = S.level === 'city' ? null : (rowsOf('city') || [])[0];
+      data = years.map((y) => {
+        const p = { year: y, v: val(r, y, nd) };
+        if (city) p.l = M === 'year' ? num(city[m + '_' + y]) / nAreas : val(city, y, +city.smd_count || 345);
+        return p;
+      });
+      if (city) lineName = M === 'year' ? 'Average ' + lvName : 'DC average';
+      if (M !== 'year') { const SH = { district: 'per district', sqmi: 'per square mile', vmt: 'per 100 million vehicle miles' }; title = LABEL[m] + ' ' + SH[M] + ', by year'; unit = unit + ' ' + SH[M]; }
+    }
+    document.getElementById('trend-title').textContent = title;
+    const last = federal ? null : data[data.length - 1].year;
     const width = Math.max(240, box.clientWidth), height = 170;
     box.replaceChildren();
     const s = d3.select(box).append('svg').attr('width', '100%').attr('viewBox', `0 0 ${width} ${height}`);
-    const y = d3.scaleLinear([0, d3.max(data, (x) => x.v) || 1], [height - 22, 8]).nice();
-    const ticks = y.ticks(4).filter(Number.isInteger);
-    const tmp = s.append('text').attr('font-size', 12).text(fInt(y.domain()[1]));
+    const top = d3.max(data, (x) => Math.max(x.v || 0, x.l || 0)) || 1;
+    const y = d3.scaleLinear([0, top], [height - 22, 8]).nice();
+    let ticks = y.ticks(4); if (y.domain()[1] >= 4) ticks = ticks.filter(Number.isInteger);
+    const step = ticks.length > 1 ? ticks[1] - ticks[0] : 1;
+    const tf = step >= 1 ? fInt : step >= 0.1 ? d3.format(',.1f') : d3.format(',.2f');
+    const vf = (v) => (v == null || isNaN(v) ? 'n/a' : Math.abs(v) >= 100 ? fInt(v) : Math.abs(v) >= 10 || (M === 'year' && !federal && Number.isInteger(v)) ? d3.format(',.1~f')(v) : d3.format(',.2~f')(v));
+    const tmp = s.append('text').attr('font-size', 12).text(tf(y.domain()[1]));
     const left = Math.ceil(tmp.node().getComputedTextLength()) + 10; tmp.remove();
     const x = d3.scaleBand(data.map((p) => p.year), [left, width - 4]).padding(0.28);
     s.append('g').selectAll('line').data(ticks).join('line')
       .attr('x1', left).attr('x2', width - 4).attr('y1', (t) => y(t)).attr('y2', (t) => y(t))
       .attr('stroke', 'var(--cds-chart-grid)');
-    s.append('g').attr('transform', `translate(${left - 6},0)`).call(d3.axisLeft(y).tickValues(ticks).tickFormat(fInt).tickSize(0))
+    s.append('g').attr('transform', `translate(${left - 6},0)`).call(d3.axisLeft(y).tickValues(ticks).tickFormat(tf).tickSize(0))
       .attr('font-size', null).attr('font-family', null).call((g) => g.select('.domain').remove());
     s.append('g').attr('transform', `translate(0,${height - 22})`).call(d3.axisBottom(x).tickSize(0).tickPadding(6).tickFormat((t) => (x.step() < 40 ? "'" + t.slice(2) : t)))
       .attr('font-size', null).attr('font-family', null).call((g) => g.select('.domain').attr('stroke', 'var(--cds-chart-axis)'));
     const ttip = Object.assign(document.createElement('div'), { className: 'cs-tip', hidden: true });
     box.append(ttip);
+    const show = (e, p) => {
+      const rows = [Object.assign(document.createElement('div'), { className: 'cs-tip-head', textContent: p.year === last ? p.year + ' so far' : p.year }),
+        Object.assign(document.createElement('div'), { className: 'cs-tip-val', textContent: barName + ': ' + vf(p.v) + ' ' + unit })];
+      if (lineName && p.l != null) rows.push(Object.assign(document.createElement('div'), { className: 'cs-tip-val', textContent: lineName + ': ' + vf(p.l) }));
+      ttip.replaceChildren(...rows); ttip.hidden = false;
+      const [px, py] = d3.pointer(e, box);
+      ttip.style.left = Math.max(0, Math.min(box.clientWidth - ttip.offsetWidth, px + 10)) + 'px';
+      ttip.style.top = Math.max(0, py - ttip.offsetHeight - 8) + 'px';
+    };
     s.append('g').selectAll('rect').data(data).join('rect')
-      .attr('x', (p) => x(p.year)).attr('width', x.bandwidth()).attr('y', (p) => y(p.v)).attr('height', (p) => Math.max(0, y(0) - y(p.v)))
-      .attr('rx', 4).style('fill', dash.colors[0]).style('opacity', (p) => (p.year === last ? 0.45 : 1))
-      .on('mousemove', (e, p) => {
-        ttip.replaceChildren(Object.assign(document.createElement('div'), { className: 'cs-tip-head', textContent: p.year === last ? p.year + ' so far' : p.year }),
-          Object.assign(document.createElement('div'), { className: 'cs-tip-val', textContent: fInt(p.v) + ' ' + UNIT[SER()] }));
-        ttip.hidden = false;
-        const [px, py] = d3.pointer(e, box);
-        ttip.style.left = Math.max(0, Math.min(box.clientWidth - ttip.offsetWidth, px + 10)) + 'px';
-        ttip.style.top = Math.max(0, py - ttip.offsetHeight - 8) + 'px';
-      })
-      .on('mouseleave', () => { ttip.hidden = true; });
+      .attr('x', (p) => x(p.year)).attr('width', x.bandwidth()).attr('y', (p) => y(p.v || 0)).attr('height', (p) => Math.max(0, y(0) - y(p.v || 0)))
+      .attr('rx', 4).style('fill', dash.colors[0]).style('opacity', (p) => (p.year === last ? 0.45 : 1));
+    if (lineName) {
+      const pts = data.filter((p) => p.l != null && !isNaN(p.l));
+      const cx = (p) => x(p.year) + x.bandwidth() / 2;
+      s.append('path').datum(pts).attr('fill', 'none').attr('stroke', 'var(--color-fg)').attr('stroke-width', 2)
+        .attr('stroke-dasharray', (p) => null).attr('d', d3.line().x(cx).y((p) => y(p.l)));
+      s.append('g').selectAll('circle').data(pts).join('circle').attr('cx', cx).attr('cy', (p) => y(p.l)).attr('r', 3)
+        .attr('fill', 'var(--color-bg)').attr('stroke', 'var(--color-fg)').attr('stroke-width', 2);
+    }
+    /* invisible hover columns cover bar and line */
+    s.append('g').selectAll('rect').data(data).join('rect').attr('x', (p) => x(p.year) - (x.step() - x.bandwidth()) / 2).attr('width', x.step())
+      .attr('y', 0).attr('height', height - 22).attr('fill', 'transparent').on('mousemove', show).on('mouseleave', () => { ttip.hidden = true; });
+    const item = (cls, txt) => { const sp = document.createElement('span'); const i = document.createElement('i'); i.className = cls; if (!cls) i.style.background = dash.colors[0]; sp.append(i, txt); return sp; };
+    key.replaceChildren(item('', barName), ...(lineName ? [item('cs-k-line', lineName)] : []));
+    note.textContent = federal
+      ? 'Federal fatality data (FARS) for DC and the typical (median) city of 500,000 to 1 million people, the same data as the city grade. Counts can differ slightly from the police crash data used elsewhere.'
+      : (m === 'deaths' ? 'Police crash counts, which can differ from DC\u2019s official totals, most in 2016 and 2017. ' : '') + (lineName ? (M === 'year' ? 'The line is the DC total split evenly across all ' + nAreas + ' ' + LV[S.level].plural + '. ' : 'The line is the rate for DC as a whole. ') : '') + 'The lighter bar is 2026 so far. Hover a year for its numbers.';
   }
 
   /* ---------- table ---------- */
@@ -961,7 +1060,7 @@
     const table = document.getElementById('cs-table');
     table.dataset.source = S.level; table.dataset.rowKey = S.level;
     document.getElementById('table-title').textContent = LV[S.level].title;
-    document.getElementById('table-note').textContent = (msr() === 'year' ? 'Yearly totals' : 'Compared ' + MNAME[msr()]) + ', 2023 to 2025 average.' + (S.level === 'city' ? '' : (GRADE() ? ' Sorted best grade first.' : ' Rank is for ' + LABEL[S.metric].toLowerCase() + '.') + ' Click a heading to sort, a row to open its scorecard.');
+    document.getElementById('table-note').textContent = (msr() === 'year' ? 'Yearly totals' : 'Compared ' + MNAME[msr()]) + ', ' + winLabel() + ' average.' + (S.level === 'city' ? '' : (GRADE() ? ' Sorted best grade first.' : ' Rank is for ' + LABEL[S.metric].toLowerCase() + '.') + ' Click a heading to sort, a row to open its scorecard.');
     const cols = columns();
     if (!S.sortKey || !cols.some((c) => c.f === S.sortKey)) { S.sortKey = GRADE() ? 'grade' : fieldOf(S.metric); S.sortDir = GRADE() ? 1 : -1; }
     const thead = document.getElementById('cs-thead');
@@ -1103,10 +1202,10 @@
     fillCitywide();
     if (document.getElementById('scorecard-view').hidden) return;
     const lvl = LV[S.level].by;
-    document.getElementById('map-title').textContent = GRADE() ? 'Safety grade, ' + lvl : DEATHS() ? 'Traffic deaths, ' + MNAME[msr()] + ', ' + lvl + ' (2019 to 2025 average)' : LABEL[S.metric] + ', ' + MNAME[msr()] + ', ' + lvl;
+    document.getElementById('map-title').textContent = GRADE() ? 'Safety grade, ' + lvl : DEATHS() ? 'Traffic deaths, ' + MNAME[msr()] + ', ' + lvl + ' (2019 to 2025 average)' : LABEL[S.metric] + ', ' + MNAME[msr()] + ', ' + lvl + (S.win === WIN0 ? '' : ' (' + winLabel() + ')');
     document.getElementById('msr-district').hidden = S.level === 'smd';
     root.querySelectorAll('[data-measure]').forEach((x) => x.setAttribute('aria-pressed', String(x.dataset.measure === msr())));
-    document.getElementById('measure-note').textContent = GRADE() ? 'Grades combine serious injuries and deaths, pedestrians and cyclists hurt, and crashes per vehicle mile, each compared with DC. The plus or minus shows whether an area is improving or worsening compared with DC over the last two years. Compare by changes the tiles and table only.' : DEATHS() ? 'Traffic deaths use the yearly average for 2019 to 2025, seven full years, because three years has too few deaths to compare wards fairly. ' + (msr() === 'vmt' ? 'Per vehicle mile counts deaths on DDOT-counted streets, leaving out freeways.' : MNOTE[msr()]) : MNOTE[msr()];
+    document.getElementById('measure-note').textContent = (S.win !== WIN0 && GRADE() ? 'Grades always use 2023 to 2025 and the latest two-year trend. The Years setting changes the tiles and table. ' : S.win !== WIN0 && DEATHS() ? 'Traffic deaths always use 2019 to 2025. ' : '') + (GRADE() ? 'Grades combine serious injuries and deaths, pedestrians and cyclists hurt, and crashes per vehicle mile, each compared with DC. The plus or minus shows whether an area is improving or worsening compared with DC over the last two years. Compare by changes the tiles and table only.' : DEATHS() ? 'Traffic deaths use the yearly average for 2019 to 2025, seven full years, because three years has too few deaths to compare wards fairly. ' + (msr() === 'vmt' ? 'Per vehicle mile counts deaths on DDOT-counted streets, leaving out freeways.' : MNOTE[msr()]) : MNOTE[msr()]);
     document.getElementById('map-note').textContent = S.level === 'city'
       ? 'All of DC is one area at this level. Ward lines are shown for reference; pick a ward chip to drill in.'
       : GRADE() ? 'Darker areas have worse grades. Drag to move; use the buttons, or pinch, to zoom.' + (S.level === 'smd' ? ' District codes appear as you zoom in.' : '')

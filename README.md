@@ -28,7 +28,7 @@ For every area, the scorecard shows:
   - in total
   - per square mile
   - per 100 million vehicle miles driven
-- **Trends since 2019**, plus 2026 so far compared with the same months of 2025.
+- **Trends since 2016**, with a line for the average area at the same level (or the typical peer city, for city traffic deaths), plus 2026 so far compared with the same months of 2025.
 - **A city grade** comparing DC's traffic deaths per resident with the other US cities of 500,000 to 1 million people, using the latest three years of federal fatality data (currently 2022 to 2024).
 
 ### How the grades work
@@ -51,9 +51,11 @@ Harm combines three measures:
 
 Cutoffs are fixed, not curved, so every area can earn an A as DC gets safer. Areas with only a few cases are pulled partway toward the DC average, so a single bad crash can't sink a grade.
 
-The **plus or minus** compares crashes and people hurt in the last two years with the two years before:
-- **Plus:** at least 12% better than DC's change.
-- **Minus:** at least 12% worse than DC's change.
+The **plus or minus** compares crashes and people hurt in the latest 24 months of data with the 24 months before, so it can change with each data update:
+- **Plus:** at least 8% better than DC's change.
+- **Minus:** at least 8% worse than DC's change.
+
+The 8% line is fixed and the same at every level. Trends for areas with few crashes are smoothed toward DC's change, so small districts need no wider line.
 
 The full method, with its limits, is on the site's **About this scorecard** tab.
 
@@ -72,7 +74,7 @@ The full method, with its limits, is on the site's **About this scorecard** tab.
 | City populations, 2018 to 2025 | [City and Town Population Totals](https://www.census.gov/data/datasets/time-series/demo/popest/2020s-total-cities-and-towns.html), US Census Bureau |
 | Method check for the city grade | Schneider, Barbee, Nelson and Gu, "[Examining a Lost Decade for Traffic Safety in Large US Cities](https://findingspress.org/article/155976-examining-a-lost-decade-for-traffic-safety-in-large-us-cities)," *Findings* (2026). Rebuilt with the same method, the 2018 to 2022 city rates match the study's to within 0.1 deaths per 100,000 on average. |
 
-Crash data currently runs through October 19, 2026.
+Crash data was downloaded from DC's map server on November 18, 2026, and runs through November 16, 2026.
 
 ---
 
@@ -100,6 +102,7 @@ The CSV files in `data/traffic-safety/` hold every number on the site:
 | `dc-crashes-by-ward.csv` | One row per ward |
 | `dc-crashes-city.csv` and `dc-crashes-citywide.csv` | DC as a whole |
 | `dc-peer-cities.csv` | Traffic deaths per 100,000 residents for DC and its peer cities, latest three years and the three before |
+| `dc-peer-years.csv` | Traffic deaths per 100,000 residents each year since 2018, for DC and the typical peer city |
 
 Each area file includes grades, measures, ranks and yearly counts. If you use them, please credit DC Open Data and DDOT as the sources and DC Scorecard as the compiler.
 
@@ -119,6 +122,7 @@ The scripts in `pipeline/` run in this order. They need Python 3 with the `shape
 
 | Script | What it does |
 |---|---|
+| `fetch_crashes.py` | Downloads the full Crashes in DC table from DC's map server, in the same format as the Open Data CSV |
 | `process.py` | Places each crash in its district and computes traffic volume per district |
 | `build.py` | Builds the ward, ANC, district and city tables, and the map outlines |
 | `trend.py` | Counts crashes in the last two years and the two years before, for the plus or minus |
@@ -133,9 +137,10 @@ The scripts were written for this project's own runs, so file paths may need adj
 ## Limits
 
 - Only police-reported crashes are included, so minor crashes are undercounted.
+- Yearly charts start in 2016. Earlier records in DC's crash file are incomplete and code serious injuries differently, so they can't be compared with later years. Police death counts for 2016 and 2017 run above DC's official totals, so death averages use 2019 to 2025.
 - Police records can miss someone who dies days after a crash, so death counts may run slightly below DC's official totals.
 - Busy commuter roads raise an area's counts no matter what residents do. The per vehicle mile view helps separate road risk from traffic volume.
-- The city grade uses peer death rates through 2022, the latest in the published study.
+- The city grade uses federal fatality data, which runs about two years behind.
 - Grades show where harm happens, not why.
 
 ---

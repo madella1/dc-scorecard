@@ -50,9 +50,14 @@ def trend(ids):
     return 2 ** (0.5 * math.log2(rc) + 0.5 * math.log2(rh)), (c1, c2, h1, h2)
 
 CUT = [(0.5, 'A'), (0.8, 'B'), (1.25, 'C'), (2.0, 'D'), (99, 'F')]
-def letter(s, t):
+# sign threshold: 8% better or worse than DC, the same at every level and for the city grade. Fixed, not curved.
+# Set Nov 2026 so that roughly a third of districts and ANCs showed each of plus, no sign and minus. Small areas need
+# no wider line because the trend is already smoothed (K above) toward DC's change.
+TCUT = {'smd': 0.08, 'anc': 0.08, 'ward': 0.08}
+def letter(s, t, lvl='ward'):
     L = next(l for c, l in CUT if s <= c)
-    sign = '+' if t <= 0.88 else ('-' if t >= 1.12 else '')
+    k = TCUT[lvl]
+    sign = '+' if t <= 1 - k else ('-' if t >= 1 + k else '')
     return L, sign
 
 smd_by_anc = collections.defaultdict(list); smd_by_ward = collections.defaultdict(list)
@@ -66,7 +71,7 @@ for lvl, rows, key, ids in (('smd', smd, 'smd', lambda r: [r['smd']]), ('anc', a
                             ('ward', ward, 'ward', lambda r: smd_by_ward[r['ward']])):
     out = []
     for r in rows:
-        s, parts = standing(r, VM[lvl]); t, cnts = trend(ids(r)); L, sg = letter(s, t)
+        s, parts = standing(r, VM[lvl]); t, cnts = trend(ids(r)); L, sg = letter(s, t, lvl)
         out.append(dict(id=r[key], standing=round(s, 2), parts={k: round(v, 2) for k, v in parts.items()}, trend=round(t, 2),
                         counts=cnts, letter=L, sign=sg, grade=L + sg))
     res[lvl] = out
